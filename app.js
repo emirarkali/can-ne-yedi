@@ -130,6 +130,7 @@ function computeStats() {
   let totalMeals = 0;
   let burgerCount = 0;
   let colaCount = 0;
+  let totalExpense = 0;
   const locationsSet = new Set();
 
   allDaysData.forEach(day => {
@@ -148,6 +149,13 @@ function computeStats() {
         (meal.items && meal.items.some(item => item.toLowerCase().includes('kola')));
 
       if (hasCola) colaCount++;
+
+      if (meal.price) {
+        const digits = String(meal.price).replace(/[^\d]/g, '');
+        if (digits) {
+          totalExpense += parseInt(digits, 10);
+        }
+      }
     });
   });
 
@@ -156,6 +164,9 @@ function computeStats() {
   document.getElementById('burgerCountVal').innerText = `${burgerCount} Adet`;
   if (document.getElementById('colaCountVal')) {
     document.getElementById('colaCountVal').innerText = `${colaCount} Kutu`;
+  }
+  if (document.getElementById('expenseVal')) {
+    document.getElementById('expenseVal').innerText = `${totalExpense.toLocaleString('tr-TR')} ₺`;
   }
   document.getElementById('totalLocations').innerHTML = `<i data-lucide="map-pin" class="w-4 h-4 text-rose-400"></i> ${locationsSet.size} Yer`;
   document.getElementById('streakCount').innerText = `${totalDays} Gün`;

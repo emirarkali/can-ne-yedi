@@ -141,7 +141,7 @@
         </div>
 
         <!-- Quick Stats Grid -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mt-6 pt-6 border-t border-slate-800/80">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mt-6 pt-6 border-t border-slate-800/80">
           <div class="bg-slate-950/40 rounded-xl p-3 border border-slate-800/60">
             <span class="text-xs text-slate-400 block mb-1">Toplam Gün</span>
             <span class="text-xl font-bold text-white flex items-center gap-1.5" id="totalDays">
@@ -166,7 +166,13 @@
               <span class="text-base">🥤</span> <span id="colaCountVal">-</span>
             </span>
           </div>
-          <div class="bg-slate-950/40 rounded-xl p-3 border border-slate-800/60 col-span-2 sm:col-span-1">
+          <div class="bg-slate-950/40 rounded-xl p-3 border border-slate-800/60">
+            <span class="text-xs text-slate-400 block mb-1">Total Harcama</span>
+            <span class="text-xl font-bold text-emerald-400 flex items-center gap-1" id="totalExpense">
+              <span class="text-base">💰</span> <span id="expenseVal">0 ₺</span>
+            </span>
+          </div>
+          <div class="bg-slate-950/40 rounded-xl p-3 border border-slate-800/60">
             <span class="text-xs text-slate-400 block mb-1">Farklı Konum</span>
             <span class="text-xl font-bold text-white flex items-center gap-1.5" id="totalLocations">
               <i data-lucide="map-pin" class="w-4 h-4 text-rose-400"></i> -
@@ -285,7 +291,7 @@
   </footer>
 
   <!-- App Script (Cache buster) -->
-  <script src="app.js?v=1.1"></script>
+  <script src="app.js?v=1.2"></script>
 </body>
 </html>
 
