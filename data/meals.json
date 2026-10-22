@@ -71,15 +71,15 @@
       },
       {
         "id": "2026-10-22-2",
-        "title": "Hamburger + Özhisar Ayran",
+        "title": "Haamburger",
         "items": [
-          "Hamburger",
-          "Özhisar Ayran"
+          "Haamburger"
         ],
         "location": "Jungle Burger",
-        "category": "Gurme Burger",
+        "category": "Fast Food",
         "emoji": "🍔",
-        "note": "Jungle Burger kapanış"
+        "note": "Jungle Burger kapanış",
+        "price": "400 TL"
       }
     ]
   }
