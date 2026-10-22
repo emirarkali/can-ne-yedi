@@ -155,34 +155,54 @@ SADECE geçerli bir JSON yanıtı döndür. Markdown bloğu veya açıklama yazm
 }
 `;
 
-  // Google'ın açıkça belirttiği güncel 2026 modeli: gemini-3.8-flash
-  const cleanModel = "gemini-3.8-flash";
+  // Google modelleri (503 yoğunluk durumunda otomatik lite modeline geçer)
+  const modelsToTry = ["gemini-3.8-flash", "gemini-3.8-flash-lite"];
+  let lastError = null;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: `${systemPrompt}\n\nKullanıcı Mesajı: "${userMessage}"` }]
+  for (const model of modelsToTry) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        if (attempt > 0) {
+          await new Promise(r => setTimeout(r, 1500)); // 503 sonrası 1.5 sn bekle
         }
-      ],
-      generationConfig: {
-        responseMimeType: "application/json"
-      }
-    })
-  });
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`${cleanModel} Modeli Hatası (${response.status}): ${errText}`);
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: "user",
+                parts: [{ text: `${systemPrompt}\n\nKullanıcı Mesajı: "${userMessage}"` }]
+              }
+            ],
+            generationConfig: {
+              responseMimeType: "application/json"
+            }
+          })
+        });
+
+        if (response.status === 503) {
+          lastError = new Error(`${model} şu an yoğun (503), tekrar deneniyor...`);
+          continue; // Bir sonraki denemeye geç
+        }
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`${model} Hatası (${response.status}): ${errText}`);
+        }
+
+        const result = await response.json();
+        const textOutput = result.candidates[0].content.parts[0].text;
+        return JSON.parse(textOutput);
+      } catch (err) {
+        lastError = err;
+      }
+    }
   }
 
-  const result = await response.json();
-  const textOutput = result.candidates[0].content.parts[0].text;
-  return JSON.parse(textOutput);
+  throw lastError || new Error("Gemini servisi şu an çok yoğun, lütfen 10 saniye sonra tekrar deneyin.");
 }
 
 /**
