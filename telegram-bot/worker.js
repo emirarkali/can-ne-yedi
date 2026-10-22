@@ -1,11 +1,5 @@
 /**
  * Can Ne Yedi? - Telegram & Gemini Destekli Cloudflare Worker
- * 
- * Gereken Ortam Değişkenleri (Environment Variables / Secrets):
- * - TELEGRAM_BOT_TOKEN : @BotFather'dan alınan bot token
- * - GITHUB_TOKEN       : GitHub Personal Access Token (repo izni olan)
- * - GEMINI_API_KEY     : Google AI Studio'dan alınan ücretsiz Gemini anahtarı
- * - ALLOWED_CHAT_ID    : (Opsiyonel) Sadece senin ekleme yapabilmen için Telegram Chat ID'n
  */
 
 const REPO_OWNER = "emirarkali";
@@ -19,6 +13,8 @@ export default {
       return new Response("Can Ne Yedi Telegram Bot Webhook Active! 🍔", { status: 200 });
     }
 
+    let currentChatId = null;
+
     try {
       const update = await request.json();
       if (!update.message || !update.message.text) {
@@ -26,15 +22,16 @@ export default {
       }
 
       const chatId = update.message.chat.id;
+      currentChatId = chatId;
       const userText = update.message.text.trim();
 
-      // Güvenlik: Eğer ALLOWED_CHAT_ID tanımlıysa yabancıların ekleme yapmasını engelle
+      // Güvenlik kontrolü
       if (env.ALLOWED_CHAT_ID && String(chatId) !== String(env.ALLOWED_CHAT_ID)) {
         await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⛔ Üzgünüm, bu bot sadece Can'ın yemeklerini kaydetmek için yetkilendirilmiştir.");
         return new Response("OK", { status: 200 });
       }
 
-      // /start veya /yardim komutları
+      // /start veya /yardim komutu
       if (userText === "/start" || userText.toLowerCase() === "/yardim") {
         const welcomeMsg = 
           "🍔 *Can Ne Yedi? Botuna Hoş Geldin!*\n\n" +
@@ -48,7 +45,7 @@ export default {
         return new Response("OK", { status: 200 });
       }
 
-      // Kullanıcıya işlendiğini belirten durum mesajı
+      // Durum mesajı
       await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⏳ Menü analiz ediliyor ve siteye kaydediliyor...");
 
       // 1. Gemini Flash API ile Doğal Dil Analizi
@@ -90,7 +87,7 @@ export default {
         });
       }
 
-      // Tarihe göre sıralı tut (eskiden yeniye)
+      // Tarihe göre sıralı tut
       mealsList.sort((a, b) => new Date(a.date) - new Date(b.date));
 
       // 4. GitHub'a yeni commit at
@@ -113,13 +110,16 @@ export default {
 
     } catch (error) {
       console.error(error);
+      if (currentChatId && env.TELEGRAM_BOT_TOKEN) {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, currentChatId, `❌ Hata oluştu: ${error.message}`);
+      }
       return new Response("Error: " + error.message, { status: 200 });
     }
   }
 };
 
 /**
- * Gemini Flash API Çağrısı
+ * Gemini Flash API Çağrısı (2.0-flash / 2.5-flash)
  */
 async function parseMealWithGemini(userMessage, apiKey) {
   const today = new Date();
@@ -132,7 +132,7 @@ Sen bir yemek günlüğü asistanısın. Kullanıcının Türkçe yazdığı met
 Bugünün tarihi: ${todayDateStr} (${todayDayName}).
 
 Kurallar:
-1. "location" için mekan adını normalize et. Örn: "yurtta", "yurttayım" -> "Yurt". "mc", "mcdonalds", "mc donalds" -> "McDonald's". "jungle" -> "Jungle Burger". Belirtilmemişse "Bilinmiyor".
+1. "location": Mekan adını normalize et. Örn: "yurtta", "yurttayım" -> "Yurt". "mc", "mcdonalds", "mc donalds" -> "McDonald's". "jungle" -> "Jungle Burger". Belirtilmemişse "Bilinmiyor".
 2. "title": Yiyecek ve içeceği özetle, örn: "Hamburger + Fuse Tea Şeftali" veya "Tavuk Dürüm + Ayran".
 3. "items": Yiyecek ve içeceklerin listesi dizi olarak, örn: ["Hamburger", "Fuse Tea Şeftali"].
 4. "category": Uygun bir kategori, örn: "Fast Food", "Dürüm", "Ev Yemeği", "Gurme Burger", "Tatlı".
@@ -155,31 +155,43 @@ SADECE geçerli bir JSON yanıtı döndür. Markdown bloğu veya açıklama yazm
 }
 `;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: `${systemPrompt}\n\nKullanıcı Mesajı: "${userMessage}"` }]
-        }
-      ],
-      generationConfig: {
-        responseMimeType: "application/json"
-      }
-    })
-  });
+  const modelsToTry = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash-latest"];
+  let lastError = null;
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Gemini API Hatası: ${errText}`);
+  for (const model of modelsToTry) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: `${systemPrompt}\n\nKullanıcı Mesajı: "${userMessage}"` }]
+            }
+          ],
+          generationConfig: {
+            responseMimeType: "application/json"
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`${model} Hatası (${response.status}): ${errText}`);
+      }
+
+      const result = await response.json();
+      const textOutput = result.candidates[0].content.parts[0].text;
+      return JSON.parse(textOutput);
+    } catch (err) {
+      lastError = err;
+      continue;
+    }
   }
 
-  const result = await response.json();
-  const textOutput = result.candidates[0].content.parts[0].text;
-  return JSON.parse(textOutput);
+  throw lastError || new Error("Gemini API modellerine ulaşılamadı.");
 }
 
 /**
@@ -196,7 +208,8 @@ async function getGitHubFile(token) {
   });
 
   if (!response.ok) {
-    throw new Error(`GitHub getFile Hatası: ${response.status}`);
+    const errText = await response.text();
+    throw new Error(`GitHub getFile Hatası (${response.status}): ${errText}`);
   }
 
   const data = await response.json();
@@ -212,7 +225,6 @@ async function getGitHubFile(token) {
  */
 async function updateGitHubFile(token, sha, content, message) {
   const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
-  // UTF-8 güvenli Base64 encode
   const utf8Bytes = new TextEncoder().encode(content);
   let binary = "";
   for (let i = 0; i < utf8Bytes.length; i++) {
@@ -238,7 +250,7 @@ async function updateGitHubFile(token, sha, content, message) {
 
   if (!response.ok) {
     const errText = await response.text();
-    throw new Error(`GitHub updateFile Hatası: ${errText}`);
+    throw new Error(`GitHub updateFile Hatası (${response.status}): ${errText}`);
   }
 
   return await response.json();
