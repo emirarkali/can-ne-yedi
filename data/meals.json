@@ -82,5 +82,24 @@
         "price": "400 TL"
       }
     ]
+  },
+  {
+    "date": "2026-10-23",
+    "day": "Cuma",
+    "meals": [
+      {
+        "id": "2026-10-23-4693",
+        "title": "pizza + kola",
+        "items": [
+          "pizza",
+          "kola"
+        ],
+        "location": "Yurt",
+        "category": "Fast Food",
+        "emoji": "🍕",
+        "price": "300 TL",
+        "note": ""
+      }
+    ]
   }
 ]
