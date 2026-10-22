@@ -155,34 +155,8 @@ SADECE geçerli bir JSON yanıtı döndür. Markdown bloğu veya açıklama yazm
 }
 `;
 
-  // 1. Önce bu API anahtarının yetkili olduğu modelleri Google'a soruyoruz
-  let selectedModelName = "models/gemini-2.0-flash";
-  try {
-    const listResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-    if (listResp.ok) {
-      const listData = await listResp.json();
-      const validModels = (listData.models || [])
-        .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
-        .map(m => m.name); // örn: "models/gemini-2.0-flash"
-
-      // En uygun modeli seç (2.0-flash, 2.5-flash veya ilk generateContent modeli)
-      const flashModel = validModels.find(m => m.includes("2.0-flash")) || 
-                         validModels.find(m => m.includes("2.5-flash")) || 
-                         validModels.find(m => m.includes("flash")) || 
-                         validModels[0];
-      if (flashModel) {
-        selectedModelName = flashModel;
-      }
-    } else {
-      const listErr = await listResp.text();
-      console.warn("Model listesi alınamadı: ", listErr);
-    }
-  } catch (e) {
-    console.warn("Model listeleme hatası: ", e);
-  }
-
-  // Model adını temizle (models/ önekini kaldır gerekirse)
-  const cleanModel = selectedModelName.replace("models/", "");
+  // Google'ın açıkça belirttiği güncel 2026 modeli: gemini-3.8-flash
+  const cleanModel = "gemini-3.8-flash";
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`;
   const response = await fetch(url, {

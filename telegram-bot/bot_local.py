@@ -75,7 +75,7 @@ SADECE geçerli bir JSON çıktısı ver. Markdown bloğu veya açıklama yazma:
   }}
 }}
 """
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={GEMINI_API_KEY}"
     body = {
         "contents": [{"parts": [{"text": f"{prompt}\n\nKullanıcı: \"{user_text}\""}]}],
         "generationConfig": {"responseMimeType": "application/json"}
@@ -168,3 +168,4 @@ def poll_updates():
 
 if __name__ == "__main__":
     poll_updates()
+

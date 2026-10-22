@@ -73,3 +73,4 @@ Telegram'dan bota dilediğiniz gibi yazabilirsiniz:
 - *"Dün akşam yurtta pizza yedim"*
 
 Bot bunları anlar, emojisini ve kategorisini seçip siteye otomatik işler!
+
