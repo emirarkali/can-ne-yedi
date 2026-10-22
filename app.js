@@ -382,9 +382,9 @@ function closeModal() {
   modal.classList.add('hidden');
 }
 
-openModalBtn.addEventListener('click', openModal);
-closeModalBtn.addEventListener('click', closeModal);
-modalDoneBtn.addEventListener('click', closeModal);
+if (openModalBtn) openModalBtn.addEventListener('click', openModal);
+if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
+if (modalDoneBtn) modalDoneBtn.addEventListener('click', closeModal);
 
 modal.addEventListener('click', (e) => {
   if (e.target === modal) closeModal();
