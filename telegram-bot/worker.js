@@ -119,7 +119,7 @@ export default {
 };
 
 /**
- * Gemini Flash API Çağrısı (2.0-flash / 2.5-flash)
+ * Gemini Flash API Çağrısı (Otomatik Model Tespiti ile)
  */
 async function parseMealWithGemini(userMessage, apiKey) {
   const today = new Date();
@@ -155,43 +155,60 @@ SADECE geçerli bir JSON yanıtı döndür. Markdown bloğu veya açıklama yazm
 }
 `;
 
-  const modelsToTry = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash-latest"];
-  let lastError = null;
+  // 1. Önce bu API anahtarının yetkili olduğu modelleri Google'a soruyoruz
+  let selectedModelName = "models/gemini-2.0-flash";
+  try {
+    const listResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    if (listResp.ok) {
+      const listData = await listResp.json();
+      const validModels = (listData.models || [])
+        .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
+        .map(m => m.name); // örn: "models/gemini-2.0-flash"
 
-  for (const model of modelsToTry) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: `${systemPrompt}\n\nKullanıcı Mesajı: "${userMessage}"` }]
-            }
-          ],
-          generationConfig: {
-            responseMimeType: "application/json"
-          }
-        })
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`${model} Hatası (${response.status}): ${errText}`);
+      // En uygun modeli seç (2.0-flash, 2.5-flash veya ilk generateContent modeli)
+      const flashModel = validModels.find(m => m.includes("2.0-flash")) || 
+                         validModels.find(m => m.includes("2.5-flash")) || 
+                         validModels.find(m => m.includes("flash")) || 
+                         validModels[0];
+      if (flashModel) {
+        selectedModelName = flashModel;
       }
-
-      const result = await response.json();
-      const textOutput = result.candidates[0].content.parts[0].text;
-      return JSON.parse(textOutput);
-    } catch (err) {
-      lastError = err;
-      continue;
+    } else {
+      const listErr = await listResp.text();
+      console.warn("Model listesi alınamadı: ", listErr);
     }
+  } catch (e) {
+    console.warn("Model listeleme hatası: ", e);
   }
 
-  throw lastError || new Error("Gemini API modellerine ulaşılamadı.");
+  // Model adını temizle (models/ önekini kaldır gerekirse)
+  const cleanModel = selectedModelName.replace("models/", "");
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: `${systemPrompt}\n\nKullanıcı Mesajı: "${userMessage}"` }]
+        }
+      ],
+      generationConfig: {
+        responseMimeType: "application/json"
+      }
+    })
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`${cleanModel} Modeli Hatası (${response.status}): ${errText}`);
+  }
+
+  const result = await response.json();
+  const textOutput = result.candidates[0].content.parts[0].text;
+  return JSON.parse(textOutput);
 }
 
 /**
