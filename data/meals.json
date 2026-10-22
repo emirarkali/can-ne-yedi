@@ -1,0 +1,71 @@
+[
+  {
+    "date": "2026-10-19",
+    "day": "Pazartesi",
+    "meals": [
+      {
+        "id": "2026-10-19-1",
+        "title": "Hamburger + Ayran",
+        "items": ["Hamburger", "Ayran"],
+        "location": "Yurtta",
+        "category": "Fast Food",
+        "emoji": "🍔",
+        "note": "Haftanın açılış klasiği"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-20",
+    "day": "Salı",
+    "meals": [
+      {
+        "id": "2026-10-20-1",
+        "title": "Hamburger + Kola",
+        "items": ["Hamburger", "Kola"],
+        "location": "McDonald's",
+        "category": "Fast Food",
+        "emoji": "🍔",
+        "note": "McDonald's menüsü"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-21",
+    "day": "Çarşamba",
+    "meals": [
+      {
+        "id": "2026-10-21-1",
+        "title": "Hamburger + Kola",
+        "items": ["Hamburger", "Kola"],
+        "location": "McDonald's",
+        "category": "Fast Food",
+        "emoji": "🍔",
+        "note": "İstikrar bozulmuyor"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-22",
+    "day": "Perşembe",
+    "meals": [
+      {
+        "id": "2026-10-22-1",
+        "title": "Zater + Kola",
+        "items": ["Zater", "Kola"],
+        "location": "Yurtta",
+        "category": "Fırın / Börek",
+        "emoji": "🫓",
+        "note": "Günün ilk lezzeti"
+      },
+      {
+        "id": "2026-10-22-2",
+        "title": "Hamburger + Ayran",
+        "items": ["Hamburger", "Ayran"],
+        "location": "Jungle Burger",
+        "category": "Gurme Burger",
+        "emoji": "🍔",
+        "note": "Jungle Burger kapanış"
+      }
+    ]
+  }
+]
