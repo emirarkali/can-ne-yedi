@@ -644,7 +644,18 @@ export default {
       }
 
       // ============================================================
-      // 4. Doğal Dil ile Ekleme (AI)
+      // 4. Bilinmeyen Komut Kontrolü (/ ile başlıyorsa AI'ya sorma!)
+      // ============================================================
+      if (userText.startsWith("/")) {
+        const unknownMsg = 
+          `❓ *Bilinmeyen bir komut yazdın:* \`${userText}\`\n\n` +
+          `Kullanabileceğin komutları görmek için: **/yardim**`;
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, unknownMsg, "Markdown");
+        return new Response("OK", { status: 200 });
+      }
+
+      // ============================================================
+      // 5. Doğal Dil ile Ekleme (AI)
       // ============================================================
       await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⏳ Menü analiz ediliyor...");
       let parsedData = null;
