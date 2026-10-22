@@ -80,6 +80,19 @@
         "emoji": "🍔",
         "note": "Jungle Burger kapanış",
         "price": "400 TL"
+      },
+      {
+        "id": "2026-10-22-2300",
+        "title": "Çiğ Köfte + Şalgam",
+        "items": [
+          "Çiğ Köfte",
+          "Şalgam"
+        ],
+        "location": "Yurt",
+        "category": "Çiğ Köfte",
+        "emoji": "🌯",
+        "price": "140 TL",
+        "note": ""
       }
     ]
   }
