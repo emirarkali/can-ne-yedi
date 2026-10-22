@@ -270,9 +270,16 @@ function renderTimeline() {
                 ${meal.emoji || '🍔'}
               </div>
               <div>
-                <h4 class="text-base font-bold text-white group-hover:text-brand-400 transition-colors">
-                  ${meal.title}
-                </h4>
+                <div class="flex items-center gap-2">
+                  <h4 class="text-base font-bold text-white group-hover:text-brand-400 transition-colors">
+                    ${meal.title}
+                  </h4>
+                  ${meal.price ? `
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      💰 ${meal.price}
+                    </span>
+                  ` : ''}
+                </div>
                 <div class="flex flex-wrap items-center gap-2 mt-2">
                   <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${locBadgeClass}">
                     <i data-lucide="map-pin" class="w-3 h-3"></i>

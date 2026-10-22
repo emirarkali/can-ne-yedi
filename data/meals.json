@@ -80,9 +80,15 @@
         "category": "Gurme Burger",
         "emoji": "🍔",
         "note": "Jungle Burger kapanış"
-      },
+      }
+    ]
+  },
+  {
+    "date": "2026-10-23",
+    "day": "Cuma",
+    "meals": [
       {
-        "id": "2026-10-22-0142",
+        "id": "2026-10-23-1",
         "title": "Dürüm Menü + Kola",
         "items": [
           "Dürüm Menü",

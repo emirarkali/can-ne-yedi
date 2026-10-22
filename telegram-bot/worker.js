@@ -1,11 +1,27 @@
 /**
  * Can Ne Yedi? - Telegram & Gemini Destekli Cloudflare Worker
+ * 
+ * Özellikler:
+ * - Türkiye Saat Dilimi (Europe/Istanbul UTC+3)
+ * - Fiyat Takibi (TL / ₺)
+ * - Yapay Zeka (Gemini 3.8 Flash / Lite)
+ * - AI Hata Durumunda Manuel Fallback (Pipe '|' formatı desteği)
  */
 
 const REPO_OWNER = "emirarkali";
 const REPO_NAME = "can-ne-yedi";
 const FILE_PATH = "data/meals.json";
 const GITHUB_BRANCH = "main";
+
+function getTurkeyTimeInfo() {
+  const now = new Date();
+  // YYYY-MM-DD formatında Türkiye tarihi
+  const trDateStr = now.toLocaleDateString("en-CA", { timeZone: "Europe/Istanbul" });
+  const dayNamesTr = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+  const trDateObj = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Istanbul" }));
+  const trDayName = dayNamesTr[trDateObj.getDay()];
+  return { date: trDateStr, day: trDayName };
+}
 
 export default {
   async fetch(request, env) {
@@ -31,30 +47,50 @@ export default {
         return new Response("OK", { status: 200 });
       }
 
-      // /start veya /yardim komutu
+      // /start veya /yardim
       if (userText === "/start" || userText.toLowerCase() === "/yardim") {
         const welcomeMsg = 
           "🍔 *Can Ne Yedi? Botuna Hoş Geldin!*\n\n" +
-          "Bana doğal dille ne yediğini ve nerede yediğini yazman yeterli.\n\n" +
+          "Bana doğal dille ne yediğini, mekanı ve varsa fiyatı yazabilirsin:\n\n" +
           "*Örnekler:*\n" +
-          "• `Öğlen mc donaldsda hamburger yedim yanında fuse tea şeftali içtim`\n" +
-          "• `Yurtta tavuk dürüm ve kola gömdüm`\n" +
-          "• `Jungle burgerde double burger ayran patates`\n\n" +
-          "Yapay zeka bunu anlayıp otomatik olarak siteye ekleyecek! 🚀";
+          "• `Öğlen mc donaldsda hamburger menü yedim 230 tl tuttu yanında fuse tea şeftali içtim`\n" +
+          "• `Yurtta tavuk dürüm ve kola gömdüm 140 tl`\n" +
+          "• `Jungle burgerde double burger ayran 280 tl`\n\n" +
+          "💡 *Yedek Manuel Format:* Eğer yapay zeka meşgulse doğrudan şöyle de yazabilirsin:\n" +
+          "`Yemek Adı | Mekan | Fiyat`\n" +
+          "Örn: `Hamburger + Ayran | Jungle Burger | 250 TL`";
         await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, welcomeMsg, "Markdown");
         return new Response("OK", { status: 200 });
       }
 
-      // Durum mesajı
-      await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⏳ Menü analiz ediliyor ve siteye kaydediliyor...");
+      let parsedData = null;
 
-      // 1. Gemini Flash API ile Doğal Dil Analizi
-      const parsedData = await parseMealWithGemini(userText, env.GEMINI_API_KEY);
+      // 1. Manuel Yedek Mod Kontrolü (Kullanıcı '|' kullanarak girdiyse yapay zekasız ekle)
+      if (userText.includes("|")) {
+        parsedData = parseManualFormat(userText);
+      } else {
+        // 2. Doğal Dil & Gemini AI ile Analiz
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⏳ Menü analiz ediliyor ve siteye kaydediliyor...");
+        try {
+          parsedData = await parseMealWithGemini(userText, env.GEMINI_API_KEY);
+        } catch (aiErr) {
+          console.error("Gemini AI Hatası: ", aiErr);
+          // AI meşgulse kullanıcıya anlaşılır yedek şablonu sor
+          const fallbackPrompt = 
+            `⚠️ *Yapay zeka şu an meşgul (${aiErr.message.slice(0, 50)}...)*\n\n` +
+            `Öğünü hemen eklemek için şu formatta yazıp tekrar gönderebilirsin:\n\n` +
+            `👉 \`Yemek + İçecek | Mekan | Fiyat\`\n\n` +
+            `*Örnek:*\n\`Dürüm Menü + Kola | McDonald's | 220 TL\``;
+          await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, fallbackPrompt, "Markdown");
+          return new Response("OK", { status: 200 });
+        }
+      }
+
       if (!parsedData || !parsedData.meal) {
         throw new Error("Yemek bilgisi anlaşılamadı. Lütfen yiyecek ve mekan belirterek tekrar yazın.");
       }
 
-      // 2. GitHub'dan mevcut meals.json dosyasını çek
+      // 3. GitHub'dan mevcut meals.json dosyasını çek
       const githubFile = await getGitHubFile(env.GITHUB_TOKEN);
       let mealsList = [];
       try {
@@ -63,9 +99,9 @@ export default {
         mealsList = [];
       }
 
-      // 3. Tarihe göre listeye ekle
-      const targetDate = parsedData.date; // YYYY-MM-DD
-      const targetDay = parsedData.day;   // Pazartesi, Salı, etc.
+      // 4. Türkiye saatine göre listeye ekle
+      const targetDate = parsedData.date;
+      const targetDay = parsedData.day;
       const newMeal = {
         id: `${targetDate}-${Date.now().toString().slice(-4)}`,
         title: parsedData.meal.title,
@@ -73,6 +109,7 @@ export default {
         location: parsedData.meal.location || "Belirtilmedi",
         category: parsedData.meal.category || "Fast Food",
         emoji: parsedData.meal.emoji || "🍽️",
+        price: parsedData.meal.price || null,
         note: parsedData.meal.note || ""
       };
 
@@ -90,17 +127,18 @@ export default {
       // Tarihe göre sıralı tut
       mealsList.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-      // 4. GitHub'a yeni commit at
+      // 5. GitHub'a yeni commit at
       const updatedJsonContent = JSON.stringify(mealsList, null, 2);
       const commitMessage = `feat: ${targetDay} öğünü eklendi (${newMeal.title} - ${newMeal.location})`;
       await updateGitHubFile(env.GITHUB_TOKEN, githubFile.sha, updatedJsonContent, commitMessage);
 
-      // 5. Telegram'a başarı mesajı yolla
+      // 6. Telegram'a başarı mesajı yolla
       const successMsg = 
         `✅ *Harika, siteye eklendi!*\n\n` +
         `📅 *Tarih:* ${targetDay} (${targetDate})\n` +
         `${newMeal.emoji} *Öğün:* ${newMeal.title}\n` +
         `📍 *Konum:* ${newMeal.location}\n` +
+        (newMeal.price ? `💰 *Fiyat:* ${newMeal.price}\n` : "") +
         `🏷️ *Kategori:* ${newMeal.category}\n` +
         (newMeal.note ? `💬 *Not:* ${newMeal.note}\n` : "") +
         `\n🌐 *Canlı Site:* https://${REPO_OWNER}.github.io/${REPO_NAME}/`;
@@ -119,26 +157,59 @@ export default {
 };
 
 /**
- * Gemini Flash API Çağrısı (Otomatik Model Tespiti ile)
+ * Manuel Format Çözücü: "Yemek | Mekan | Fiyat"
+ */
+function parseManualFormat(text) {
+  const parts = text.split("|").map(p => p.trim());
+  const { date, day } = getTurkeyTimeInfo();
+  
+  const title = parts[0] || "Öğün";
+  const location = parts[1] || "Yurt";
+  const price = parts[2] ? (parts[2].includes("TL") || parts[2].includes("₺") ? parts[2] : `${parts[2]} TL`) : null;
+
+  // Basit kategori ve emoji tahmini
+  let emoji = "🍽️";
+  let category = "Fast Food";
+  const lower = title.toLowerCase();
+  if (lower.includes("burger") || lower.includes("hamburger")) { emoji = "🍔"; category = "Fast Food"; }
+  else if (lower.includes("dürüm") || lower.includes("zater")) { emoji = "🌯"; category = "Dürüm"; }
+  else if (lower.includes("pizza")) { emoji = "🍕"; category = "Fast Food"; }
+  else if (lower.includes("kahve")) { emoji = "☕"; category = "İçecek"; }
+
+  return {
+    date,
+    day,
+    meal: {
+      title,
+      items: [title],
+      location,
+      price,
+      category,
+      emoji,
+      note: ""
+    }
+  };
+}
+
+/**
+ * Gemini Flash API Çağrısı (Türkiye Saati & Fiyat Destekli)
  */
 async function parseMealWithGemini(userMessage, apiKey) {
-  const today = new Date();
-  const dayNamesTr = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
-  const todayDateStr = today.toISOString().split("T")[0];
-  const todayDayName = dayNamesTr[today.getDay()];
+  const { date: todayDateStr, day: todayDayName } = getTurkeyTimeInfo();
 
   const systemPrompt = `
 Sen bir yemek günlüğü asistanısın. Kullanıcının Türkçe yazdığı metinden yediği öğünü analiz edeceksin.
-Bugünün tarihi: ${todayDateStr} (${todayDayName}).
+Türkiye Yerel Saatine göre bugünün tarihi: ${todayDateStr} (${todayDayName}).
 
 Kurallar:
 1. "location": Mekan adını normalize et. Örn: "yurtta", "yurttayım" -> "Yurt". "mc", "mcdonalds", "mc donalds" -> "McDonald's". "jungle" -> "Jungle Burger". Belirtilmemişse "Bilinmiyor".
 2. "title": Yiyecek ve içeceği özetle, örn: "Hamburger + Fuse Tea Şeftali" veya "Tavuk Dürüm + Ayran".
 3. "items": Yiyecek ve içeceklerin listesi dizi olarak, örn: ["Hamburger", "Fuse Tea Şeftali"].
-4. "category": Uygun bir kategori, örn: "Fast Food", "Dürüm", "Ev Yemeği", "Gurme Burger", "Tatlı".
-5. "emoji": Yemeğe en uygun tek bir emoji, örn: 🍔, 🌯, 🍕, 🍗, ☕.
-6. "date": Eğer kullanıcı "dün" demediyse bugünün tarihi (${todayDateStr}). "dün" dediyse dünün tarihi.
-7. "day": Tarihe denk gelen Türkçe gün adı (${todayDayName}).
+4. "price": Eğer kullanıcı bir fiyat veya tutar belirttiyse (örn: "200 tl", "150 lira", "250₺"), bunu örn: "200 TL" olarak yaz. Belirtmediyse null yap.
+5. "category": Uygun bir kategori, örn: "Fast Food", "Dürüm", "Ev Yemeği", "Gurme Burger", "Tatlı".
+6. "emoji": Yemeğe en uygun tek bir emoji, örn: 🍔, 🌯, 🍕, 🍗, ☕.
+7. "date": Eğer kullanıcı "dün" demediyse bugünün tarihi (${todayDateStr}). "dün" dediyse dünün tarihi.
+8. "day": Tarihe denk gelen Türkçe gün adı (${todayDayName}).
 
 SADECE geçerli bir JSON yanıtı döndür. Markdown bloğu veya açıklama yazma:
 {
@@ -148,6 +219,7 @@ SADECE geçerli bir JSON yanıtı döndür. Markdown bloğu veya açıklama yazm
     "title": "Hamburger + Fuse Tea Şeftali",
     "items": ["Hamburger", "Fuse Tea Şeftali"],
     "location": "McDonald's",
+    "price": "220 TL",
     "category": "Fast Food",
     "emoji": "🍔",
     "note": ""
@@ -155,7 +227,6 @@ SADECE geçerli bir JSON yanıtı döndür. Markdown bloğu veya açıklama yazm
 }
 `;
 
-  // Google modelleri (503 yoğunluk durumunda otomatik lite modeline geçer)
   const modelsToTry = ["gemini-3.8-flash", "gemini-3.8-flash-lite"];
   let lastError = null;
 
@@ -163,7 +234,7 @@ SADECE geçerli bir JSON yanıtı döndür. Markdown bloğu veya açıklama yazm
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         if (attempt > 0) {
-          await new Promise(r => setTimeout(r, 1500)); // 503 sonrası 1.5 sn bekle
+          await new Promise(r => setTimeout(r, 1500));
         }
 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -184,8 +255,8 @@ SADECE geçerli bir JSON yanıtı döndür. Markdown bloğu veya açıklama yazm
         });
 
         if (response.status === 503) {
-          lastError = new Error(`${model} şu an yoğun (503), tekrar deneniyor...`);
-          continue; // Bir sonraki denemeye geç
+          lastError = new Error(`${model} yoğun (503)`);
+          continue;
         }
 
         if (!response.ok) {
@@ -202,7 +273,7 @@ SADECE geçerli bir JSON yanıtı döndür. Markdown bloğu veya açıklama yazm
     }
   }
 
-  throw lastError || new Error("Gemini servisi şu an çok yoğun, lütfen 10 saniye sonra tekrar deneyin.");
+  throw lastError || new Error("Gemini servisi şu an yoğun.");
 }
 
 /**
