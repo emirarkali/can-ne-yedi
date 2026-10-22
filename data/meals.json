@@ -98,19 +98,6 @@
         "category": "Fast Food",
         "emoji": "🌯",
         "note": ""
-      },
-      {
-        "id": "2026-10-23-8450",
-        "title": "Dürüm Menü + Kola",
-        "items": [
-          "Dürüm Menü",
-          "Kola"
-        ],
-        "location": "McDonald's",
-        "category": "Fast Food",
-        "emoji": "🌯",
-        "price": null,
-        "note": ""
       }
     ]
   }
