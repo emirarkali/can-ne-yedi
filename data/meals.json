@@ -82,24 +82,5 @@
         "price": "400 TL"
       }
     ]
-  },
-  {
-    "date": "2026-10-23",
-    "day": "Cuma",
-    "meals": [
-      {
-        "id": "2026-10-23-2168",
-        "title": "Pizza + Kola",
-        "items": [
-          "Pizza",
-          "Kola"
-        ],
-        "location": "Dominos",
-        "category": "Fast Food",
-        "emoji": "🍕",
-        "price": "255 TL",
-        "note": ""
-      }
-    ]
   }
 ]
