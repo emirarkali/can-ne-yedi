@@ -60,5 +60,11 @@ git push origin main
 
 ---
 
+## 🤖 Telegram Botu ile Otomatik Ekleme
+
+Telefondan Telegram'a doğal dille yazarak siteye otomatik ekleme yapmak için [telegram-bot/README.md](telegram-bot/README.md) kılavuzuna göz atabilirsiniz.
+
+---
+
 Geliştirici: [@emirarkali](https://github.com/emirarkali)
 

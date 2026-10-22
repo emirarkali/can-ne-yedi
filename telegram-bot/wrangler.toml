@@ -1,0 +1,9 @@
+name = "can-ne-yedi-bot"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Ortam Değişkenleri (Cloudflare Dashboard > Settings > Variables üzerinden Secret olarak eklenir):
+# TELEGRAM_BOT_TOKEN
+# GITHUB_TOKEN
+# GEMINI_API_KEY
+# ALLOWED_CHAT_ID (opsiyonel)
