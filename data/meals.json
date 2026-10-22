@@ -20,8 +20,8 @@
     "meals": [
       {
         "id": "2026-10-20-1",
-        "title": "Hamburger + Kola",
-        "items": ["Hamburger", "Kola"],
+        "title": "Hamburger + Fuse Tea Şeftali",
+        "items": ["Hamburger", "Fuse Tea Şeftali"],
         "location": "McDonald's",
         "category": "Fast Food",
         "emoji": "🍔",
@@ -35,8 +35,8 @@
     "meals": [
       {
         "id": "2026-10-21-1",
-        "title": "Hamburger + Kola",
-        "items": ["Hamburger", "Kola"],
+        "title": "Hamburger + Fuse Tea Şeftali",
+        "items": ["Hamburger", "Fuse Tea Şeftali"],
         "location": "McDonald's",
         "category": "Fast Food",
         "emoji": "🍔",

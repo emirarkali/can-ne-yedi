@@ -21,8 +21,8 @@ const fallbackData = [
     "meals": [
       {
         "id": "2026-10-20-1",
-        "title": "Hamburger + Kola",
-        "items": ["Hamburger", "Kola"],
+        "title": "Hamburger + Fuse Tea Şeftali",
+        "items": ["Hamburger", "Fuse Tea Şeftali"],
         "location": "McDonald's",
         "category": "Fast Food",
         "emoji": "🍔",
@@ -36,8 +36,8 @@ const fallbackData = [
     "meals": [
       {
         "id": "2026-10-21-1",
-        "title": "Hamburger + Kola",
-        "items": ["Hamburger", "Kola"],
+        "title": "Hamburger + Fuse Tea Şeftali",
+        "items": ["Hamburger", "Fuse Tea Şeftali"],
         "location": "McDonald's",
         "category": "Fast Food",
         "emoji": "🍔",
@@ -129,6 +129,7 @@ function computeStats() {
   const totalDays = allDaysData.length;
   let totalMeals = 0;
   let burgerCount = 0;
+  let colaCount = 0;
   const locationsSet = new Set();
 
   allDaysData.forEach(day => {
@@ -141,12 +142,21 @@ function computeStats() {
         (meal.items && meal.items.some(item => item.toLowerCase().includes('hamburger')));
       
       if (hasBurger) burgerCount++;
+
+      const hasCola = 
+        (meal.title && meal.title.toLowerCase().includes('kola')) ||
+        (meal.items && meal.items.some(item => item.toLowerCase().includes('kola')));
+
+      if (hasCola) colaCount++;
     });
   });
 
   document.getElementById('totalDays').innerHTML = `<i data-lucide="calendar" class="w-4 h-4 text-brand-400"></i> ${totalDays} Gün`;
   document.getElementById('totalMeals').innerHTML = `<i data-lucide="utensils" class="w-4 h-4 text-emerald-400"></i> ${totalMeals} Öğün`;
   document.getElementById('burgerCountVal').innerText = `${burgerCount} Adet`;
+  if (document.getElementById('colaCountVal')) {
+    document.getElementById('colaCountVal').innerText = `${colaCount} Kutu`;
+  }
   document.getElementById('totalLocations').innerHTML = `<i data-lucide="map-pin" class="w-4 h-4 text-rose-400"></i> ${locationsSet.size} Yer`;
   document.getElementById('streakCount').innerText = `${totalDays} Gün`;
 }
@@ -244,7 +254,7 @@ function renderTimeline() {
     const mealsHtml = day.meals.map(meal => {
       const locBadgeClass = getLocationBadgeClass(meal.location);
       const itemsBadges = (meal.items || []).map(item => {
-        const isDrink = ['ayran', 'kola', 'su', 'fanta', 'gazoz', 'kahve', 'çay'].some(d => item.toLowerCase().includes(d));
+        const isDrink = ['ayran', 'kola', 'su', 'fanta', 'gazoz', 'kahve', 'çay', 'fuse', 'tea', 'şeftali'].some(d => item.toLowerCase().includes(d));
         return `
           <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium ${isDrink ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/20' : 'bg-slate-800 text-slate-200 border border-slate-700/60'}">
             ${isDrink ? '🥤' : '🍽️'} ${item}

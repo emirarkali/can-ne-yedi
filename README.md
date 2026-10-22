@@ -22,8 +22,8 @@ Can'ın haftalık yemek günlüğü, kesintisiz yemek zinciri ve gurme duraklar�
 | Tarih | Gün | Öğün(ler) | Konum |
 | :--- | :--- | :--- | :--- |
 | **19 Ekim 2026** | Pazartesi | Hamburger + Ayran | Yurt |
-| **20 Ekim 2026** | Salı | Hamburger + Kola | McDonald's |
-| **21 Ekim 2026** | Çarşamba | Hamburger + Kola | McDonald's |
+| **20 Ekim 2026** | Salı | Hamburger + Fuse Tea Şeftali | McDonald's |
+| **21 Ekim 2026** | Çarşamba | Hamburger + Fuse Tea Şeftali | McDonald's |
 | **22 Ekim 2026** | Perşembe | 1. Tavuk Dürüm (Zater) + Kola<br>2. Hamburger + Ayran | Yurt<br>Jungle Burger |
 
 ---
