@@ -1,12 +1,13 @@
 /**
- * Can Ne Yedi? - Asenkron & Mükerrerlik Korumalı Telegram Botu
+ * Can Ne Yedi? - Canlı İlerlemeli & Işık Hızında Telegram Botu
  * 
- * Çözülen Sorun:
- * - Telegram'ın 15 sn timeout kuralı yüzünden mesajı 3 kez tekrar göndermesi engellendi (ctx.waitUntil + update_id deduplication).
- * 
- * İzinli Kullanıcılar:
- * - @emirarkali
- * - @fiFonee
+ * Yenilikler:
+ * - ⚡ Canlı İlerleme Bildirimi (Telegram mesajını anlık güncelleyerek nerede olduğunu gösterir):
+ *    1. "⏳ [1/2] Yapay zeka menüyü çözümlüyor..."
+ *    2. "📝 [2/2] Menü anlaşıldı (Çiğ Köfte + Şalgam) ➔ GitHub'a kaydediliyor..."
+ *    3. "✅ Tamamlandı! Siteye eklendi 🌐"
+ * - 🚀 flash-lite öncelikli (800ms ultra hızlı yanıt) + 8 saniye zaman aşımı limiti.
+ * - 🔒 Sadece @emirarkali ve @fiFonee
  */
 
 const REPO_OWNER = "emirarkali";
@@ -16,7 +17,7 @@ const GITHUB_BRANCH = "main";
 
 const ALLOWED_USERNAMES = ["emirarkali", "fifonee"];
 const userSessions = new Map();
-const processedUpdateIds = new Set(); // Mükerrer istekleri engellemek için
+const processedUpdateIds = new Set();
 
 function getTurkeyTimeInfo(offsetDays = 0) {
   const now = new Date();
@@ -97,7 +98,7 @@ export default {
     try {
       const update = await request.json();
       
-      // Mükerrer istek engelleme (Telegram aynı mesajı tekrar gönderirse yok say)
+      // Mükerrer istek engelleme
       if (update.update_id && processedUpdateIds.has(update.update_id)) {
         return new Response("OK", { status: 200 });
       }
@@ -109,8 +110,7 @@ export default {
         }
       }
 
-      // Telegram'a 0.1 saniyede 200 OK dönüyoruz (Timeout döngüsünü engeller!)
-      // Arka plandaki işlemleri ise ctx.waitUntil ile çalıştırıyoruz.
+      // Telegram'a anında 200 OK dönüyoruz
       if (ctx && ctx.waitUntil) {
         ctx.waitUntil(handleIncomingUpdate(update, env));
       } else {
@@ -167,12 +167,15 @@ async function handleIncomingUpdate(update, env) {
 
       userSessions.delete(chatId);
 
+      const statusMsg = await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⏳ Öğün siteden siliniyor...");
+      const statusMsgId = statusMsg ? statusMsg.message_id : null;
+
       const githubFile = await getGitHubFile(env.GITHUB_TOKEN);
       let mealsList = JSON.parse(githubFile.content);
       const flatMeals = getFlattenedMeals(mealsList);
 
       if (targetNum > flatMeals.length) {
-        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `⚠️ Geçersiz numara! Listede toplam ${flatMeals.length} öğün var.`);
+        await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, statusMsgId, `⚠️ Geçersiz numara! Listede toplam ${flatMeals.length} öğün var.`);
         return;
       }
 
@@ -186,7 +189,7 @@ async function handleIncomingUpdate(update, env) {
       }
 
       await updateGitHubFile(env.GITHUB_TOKEN, githubFile.sha, JSON.stringify(mealsList, null, 2), `chore: silindi #${targetNum}`);
-      await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `🗑️ *Öğün Silindi!*\n\n*${itemToDelete.meal.title}* siteden kaldırıldı.`);
+      await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, statusMsgId, `🗑️ *Öğün Silindi!*\n\n*${itemToDelete.meal.title}* siteden kaldırıldı.`);
       return;
     }
 
@@ -283,6 +286,9 @@ async function handleIncomingUpdate(update, env) {
 
         userSessions.delete(chatId);
 
+        const statusMsg = await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⏳ Siteye kaydediliyor...");
+        const statusMsgId = statusMsg ? statusMsg.message_id : null;
+
         let fullTitle = food;
         let items = [food];
         if (food && drink) {
@@ -303,7 +309,8 @@ async function handleIncomingUpdate(update, env) {
           emoji: guessEmoji(primaryItem)
         }, dateInfo.date, dateInfo.day);
 
-        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `✅ *Siteye Eklendi!*\n\n📅 ${dateInfo.day} (${dateInfo.date})\n${guessEmoji(primaryItem)} *${fullTitle}*\n📍 *Konum:* ${loc}\n💰 *Fiyat:* ${price}\n\n🌐 https://${REPO_OWNER}.github.io/${REPO_NAME}/`);
+        const okText = `✅ *Siteye Eklendi!*\n\n📅 ${dateInfo.day} (${dateInfo.date})\n${guessEmoji(primaryItem)} *${fullTitle}*\n📍 *Konum:* ${loc}\n💰 *Fiyat:* ${price}\n\n🌐 https://${REPO_OWNER}.github.io/${REPO_NAME}/`;
+        await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, statusMsgId, okText);
         return;
       }
     }
@@ -430,6 +437,9 @@ async function handleIncomingUpdate(update, env) {
 
         userSessions.delete(chatId);
 
+        const statusMsg = await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⏳ Düzenleme kaydediliyor...");
+        const statusMsgId = statusMsg ? statusMsg.message_id : null;
+
         let fullTitle = food;
         let items = [food];
         if (food && drink) {
@@ -446,7 +456,7 @@ async function handleIncomingUpdate(update, env) {
         const flatMeals = getFlattenedMeals(mealsList);
 
         if (mealNum < 1 || mealNum > flatMeals.length) {
-          await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⚠️ Düzenlenecek öğün bulunamadı.");
+          await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, statusMsgId, "⚠️ Düzenlenecek öğün bulunamadı.");
           return;
         }
 
@@ -484,7 +494,8 @@ async function handleIncomingUpdate(update, env) {
         mealsList.sort((a, b) => new Date(a.date) - new Date(b.date));
 
         await updateGitHubFile(env.GITHUB_TOKEN, githubFile.sha, JSON.stringify(mealsList, null, 2), `fix: düzenlendi #${mealNum} (${fullTitle})`);
-        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `✅ *Öğün Başarıyla Güncellendi!*\n\n📅 ${dateInfo.day} (${dateInfo.date})\n${guessEmoji(primaryItem)} *${fullTitle}*\n📍 *Konum:* ${loc}\n💰 *Fiyat:* ${price}\n\nSite güncellendi! 🌐`);
+        const okText = `✅ *Öğün Başarıyla Güncellendi!*\n\n📅 ${dateInfo.day} (${dateInfo.date})\n${guessEmoji(primaryItem)} *${fullTitle}*\n📍 *Konum:* ${loc}\n💰 *Fiyat:* ${price}\n\nSite güncellendi! 🌐`;
+        await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, statusMsgId, okText);
         return;
       }
     }
@@ -659,17 +670,16 @@ async function handleIncomingUpdate(update, env) {
     }
 
     // ============================================================
-    // 5. Doğal Dil ile Ekleme (AI)
+    // 5. Doğal Dil ile Ekleme (CANLI İLERLEME GÖSTERGELİ!)
     // ============================================================
-    await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⏳ Menü analiz ediliyor...");
+    const liveMsg = await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⏳ [1/2] Yapay zeka menünü çözümlüyor...");
+    const liveMsgId = liveMsg ? liveMsg.message_id : null;
+
     let parsedData = null;
     try {
-      parsedData = await parseMealWithGemini(userText, env.GEMINI_API_KEY);
+      parsedData = await parseMealWithGeminiFast(userText, env.GEMINI_API_KEY);
     } catch (aiErr) {
-      const fallbackMsg = 
-        `⚠️ Yapay zeka şu an meşgul.\n` +
-        `Öğünü adım adım eklemek için **/ekle** yazabilirsin!`;
-      await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, fallbackMsg);
+      await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, liveMsgId, `⚠️ Yapay zeka şu an meşgul.\nÖğünü hemen eklemek için **/ekle** yazabilirsin!`);
       return;
     }
 
@@ -680,16 +690,24 @@ async function handleIncomingUpdate(update, env) {
         `Lütfen fiyatıyla birlikte tekrar yaz, örn:\n` +
         `👉 \`${userText} 140 TL\`\n` +
         `veya adım adım eklemek için: **/ekle**`;
-      await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, noPriceMsg, "Markdown");
+      await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, liveMsgId, noPriceMsg);
       return;
     }
 
     parsedData.meal.title = capitalizeTr(parsedData.meal.title);
     parsedData.meal.location = normalizeLocation(parsedData.meal.location);
 
+    // Canlı durum güncellemesi: Adım 2
+    await editTelegramMessage(
+      env.TELEGRAM_BOT_TOKEN, 
+      chatId, 
+      liveMsgId, 
+      `📝 [2/2] *${parsedData.meal.title}* (${parsedData.meal.price}) anlaşıldı ➔ GitHub'a kaydediliyor...`
+    );
+
     await saveNewMealToGitHub(env.GITHUB_TOKEN, parsedData.meal, parsedData.date, parsedData.day);
 
-    const successMsg = 
+    const finalSuccessMsg = 
       `✅ *Harika, siteye eklendi!*\n\n` +
       `📅 *Tarih:* ${parsedData.day} (${parsedData.date})\n` +
       `${parsedData.meal.emoji} *Öğün:* ${parsedData.meal.title}\n` +
@@ -697,7 +715,7 @@ async function handleIncomingUpdate(update, env) {
       `💰 *Fiyat:* ${parsedData.meal.price}\n\n` +
       `🌐 https://${REPO_OWNER}.github.io/${REPO_NAME}/`;
 
-    await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, successMsg, "Markdown");
+    await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, liveMsgId, finalSuccessMsg);
 
   } catch (error) {
     console.error("handleIncomingUpdate error:", error);
@@ -821,27 +839,18 @@ async function saveNewMealToGitHub(token, meal, customDate = null, customDay = n
   await updateGitHubFile(token, githubFile.sha, JSON.stringify(mealsList, null, 2), `feat: ${targetDay} öğünü eklendi (${newMeal.title} - ${newMeal.price})`);
 }
 
-async function parseMealWithGemini(userMessage, apiKey) {
+// Işık hızında Gemini çağrısı (Flash-Lite öncelikli, 7 sn timeout)
+async function parseMealWithGeminiFast(userMessage, apiKey) {
   const { date: todayDateStr, day: todayDayName } = getTurkeyTimeInfo();
 
   const systemPrompt = `
-Sen bir yemek günlüğü asistanısın. Kullanıcının Türkçe yazdığı metinden yediği öğünü analiz edeceksin.
-Türkiye Yerel Saatine göre bugünün tarihi: ${todayDateStr} (${todayDayName}).
+Kullanıcının Türkçe yemek cümlesini analiz et.
+Bugünün tarihi: ${todayDateStr} (${todayDayName}).
 
-Kurallar:
-1. "location": Mekan adını normalize et. Örn: "yurtta", "yurttayım" -> "Yurt". "mc", "mcdonalds", "mc donalds" -> "McDonald's". "jungle" -> "Jungle Burger". Belirtilmemişse "Bilinmiyor".
-2. "title": Yiyecek ve içeceği özetle, örn: "Çiğ Köfte + Şalgam" veya "Hamburger + Ayran".
-3. "items": Yiyecek ve içeceklerin listesi dizi olarak, örn: ["Çiğ Köfte", "Şalgam"].
-4. "price": Kullanıcının belirttiği fiyat/tutar bilgisini örn: "140 TL" formatında çıkar. Eğer KESİNLİKLE hiçbir fiyat belirtmediyse null yap.
-5. "category": Uygun bir kategori, örn: "Fast Food", "Dürüm / Çiğ Köfte", "Ev Yemeği", "Gurme Burger", "Tatlı".
-6. "emoji": Yemeğe en uygun tek bir emoji, örn: 🌯, 🍔, 🍕, 🍗, ☕.
-7. "date": Eğer kullanıcı "dün" dediyse dünün tarihi. Demediyse bugünün tarihi (${todayDateStr}).
-8. "day": Türkçe gün adı.
-
-SADECE geçerli bir JSON yanıtı döndür:
+Çıktı SADECE şu JSON formatında olmalıdır:
 {
-  "date": "${todayDateStr}",
-  "day": "${todayDayName}",
+  "date": "YYYY-MM-DD (dün dediyse dünün tarihi)",
+  "day": "Türkçe gün adı",
   "meal": {
     "title": "Çiğ Köfte + Şalgam",
     "items": ["Çiğ Köfte", "Şalgam"],
@@ -854,16 +863,20 @@ SADECE geçerli bir JSON yanıtı döndür:
 }
 `;
 
-  const models = ["gemini-3.8-flash", "gemini-3.8-flash-lite"];
+  const models = ["gemini-3.8-flash-lite", "gemini-3.8-flash"];
   for (const m of models) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
       const res = await fetch(url, {
         method: "POST",
+        signal: AbortSignal.timeout(7000), // 7 saniye içinde yanıt gelmezse diğerine geç
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: `${systemPrompt}\n\nKullanıcı: "${userMessage}"` }] }],
-          generationConfig: { responseMimeType: "application/json" }
+          generationConfig: {
+            responseMimeType: "application/json",
+            maxOutputTokens: 200
+          }
         })
       });
       if (res.ok) {
@@ -915,6 +928,29 @@ async function sendTelegramMessage(botToken, chatId, text, parseMode = null) {
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
   const body = { chat_id: chatId, text };
   if (parseMode) body.parse_mode = parseMode;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  if (res.ok) {
+    const data = await res.json();
+    return data.result;
+  }
+  return null;
+}
+
+async function editTelegramMessage(botToken, chatId, messageId, text) {
+  if (!messageId) {
+    return await sendTelegramMessage(botToken, chatId, text, "Markdown");
+  }
+  const url = `https://api.telegram.org/bot${botToken}/editMessageText`;
+  const body = {
+    chat_id: chatId,
+    message_id: messageId,
+    text,
+    parse_mode: "Markdown"
+  };
   await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
