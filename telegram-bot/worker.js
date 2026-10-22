@@ -1,14 +1,14 @@
 /**
- * Can Ne Yedi? - Gelişmiş İnteraktif Telegram Botu
+ * Can Ne Yedi? - Adım Adım İnteraktif Telegram Botu
  * 
  * Özellikler:
- * - 💰 Fiyat girmek ZORUNLU (Fiyatsız öğün kaydedilmez)
- * - 📋 /liste   : Son öğünleri numaralı listeler
- * - 🗑️ /sil <no> : İstenen öğünü siler
- * - ✏️ /duzenle <no> <bilgiler> : İstenen öğünü günceller
- * - ➕ /ekle <yemek> | <mekan> | <fiyat> : Manuel tek komutla ekleme
- * - 🤖 Doğal dil ile ekleme (fiyat belirterek)
- * - 🕒 Türkiye Yerel Saati (Europe/Istanbul)
+ * - 💬 Adım Adım Soru-Cevap (Hiçbir separator '|' gerekmez!)
+ * - ✏️ /duzenle <no> : Yemek, mekan ve fiyatı tek tek sorar. Değiştirmek istemiyorsa "aynı" yazar.
+ * - ➕ /ekle         : Yeni öğünü 3 adımda tek tek sorarak ekler.
+ * - 💰 Fiyat girmek zorunludur.
+ * - 📋 /liste ve 🗑️ /sil <no>
+ * - 🤖 Doğal dil desteği (Tek cümleyle fiyat belirterek yazma)
+ * - 🕒 Türkiye Yerel Saati (Europe/Istanbul UTC+3)
  */
 
 const REPO_OWNER = "emirarkali";
@@ -42,6 +42,7 @@ export default {
       const chatId = update.message.chat.id;
       currentChatId = chatId;
       const userText = update.message.text.trim();
+      const replyToText = update.message.reply_to_message ? update.message.reply_to_message.text : "";
 
       // Güvenlik kontrolü
       if (env.ALLOWED_CHAT_ID && String(chatId) !== String(env.ALLOWED_CHAT_ID)) {
@@ -49,30 +50,174 @@ export default {
         return new Response("OK", { status: 200 });
       }
 
-      // --- KOMUTLAR ---
+      // --- ADIM ADIM İNTERAKTİF DİYALOG KONTROLÜ (Reply / Adım Algılama) ---
+
+      // A) /duzenle ADIMLARI
+      if (replyToText.includes("✏️ [DÜZENLE-ADIM 1]")) {
+        // Kullanıcı yeni yemek adını yazdı
+        const mealNum = extractTag(replyToText, "NO");
+        const oldTitle = extractTag(replyToText, "TITLE");
+        const oldLoc = extractTag(replyToText, "LOC");
+        const oldPrice = extractTag(replyToText, "PRICE");
+
+        const newTitle = isSame(userText) ? oldTitle : userText;
+
+        const nextMsg = 
+          `✏️ [DÜZENLE-ADIM 2]\n` +
+          `[NO:${mealNum}] [TITLE:${newTitle}] [LOC:${oldLoc}] [PRICE:${oldPrice}]\n\n` +
+          `2️⃣ *Nerede yedin / Konum neresi?*\n` +
+          `Şu anki: _${oldLoc}_\n` +
+          `_(Örn: Jungle Burger, Yurt, McDonald's)_\n\n` +
+          `💡 Değiştirmek istemiyorsan *aynı* yaz.`;
+        await sendForceReplyMessage(env.TELEGRAM_BOT_TOKEN, chatId, nextMsg);
+        return new Response("OK", { status: 200 });
+      }
+
+      if (replyToText.includes("✏️ [DÜZENLE-ADIM 2]")) {
+        // Kullanıcı mekanı yazdı
+        const mealNum = extractTag(replyToText, "NO");
+        const title = extractTag(replyToText, "TITLE");
+        const oldLoc = extractTag(replyToText, "LOC");
+        const oldPrice = extractTag(replyToText, "PRICE");
+
+        const newLoc = isSame(userText) ? oldLoc : normalizeLocation(userText);
+
+        const nextMsg = 
+          `✏️ [DÜZENLE-ADIM 3]\n` +
+          `[NO:${mealNum}] [TITLE:${title}] [LOC:${newLoc}] [PRICE:${oldPrice}]\n\n` +
+          `3️⃣ *Fiyatı ne kadar tuttu?*\n` +
+          `Şu anki: _${oldPrice}_\n` +
+          `_(Örn: 240 TL)_\n\n` +
+          `💡 Değiştirmek istemiyorsan *aynı* yaz.`;
+        await sendForceReplyMessage(env.TELEGRAM_BOT_TOKEN, chatId, nextMsg);
+        return new Response("OK", { status: 200 });
+      }
+
+      if (replyToText.includes("✏️ [DÜZENLE-ADIM 3]")) {
+        // Kullanıcı fiyatı yazdı -> Bitti, GitHub'a kaydet!
+        const mealNum = parseInt(extractTag(replyToText, "NO"), 10);
+        const title = extractTag(replyToText, "TITLE");
+        const loc = extractTag(replyToText, "LOC");
+        const oldPrice = extractTag(replyToText, "PRICE");
+
+        let price = isSame(userText) ? oldPrice : formatPrice(userText);
+        if (!price || price === "null") {
+          await sendForceReplyMessage(env.TELEGRAM_BOT_TOKEN, chatId, `⚠️ Fiyat girmek zorunludur! Lütfen fiyatı yaz (örn: 220 TL):\n\n${replyToText}`);
+          return new Response("OK", { status: 200 });
+        }
+
+        // GitHub güncellemesi
+        const githubFile = await getGitHubFile(env.GITHUB_TOKEN);
+        let mealsList = JSON.parse(githubFile.content);
+        const flatMeals = getFlattenedMeals(mealsList);
+
+        if (mealNum < 1 || mealNum > flatMeals.length) {
+          await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⚠️ Düzenlenecek öğün bulunamadı.");
+          return new Response("OK", { status: 200 });
+        }
+
+        const oldItem = flatMeals[mealNum - 1];
+        const dayEntry = mealsList.find(d => d.date === oldItem.date);
+        if (dayEntry) {
+          const mIdx = dayEntry.meals.findIndex(m => m.id === oldItem.meal.id);
+          if (mIdx !== -1) {
+            dayEntry.meals[mIdx] = {
+              ...dayEntry.meals[mIdx],
+              title: title,
+              items: [title],
+              location: loc,
+              price: price,
+              emoji: guessEmoji(title),
+              category: guessCategory(title)
+            };
+          }
+        }
+
+        await updateGitHubFile(env.GITHUB_TOKEN, githubFile.sha, JSON.stringify(mealsList, null, 2), `fix: düzenlendi #${mealNum} (${title})`);
+
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `✅ *Öğün Başarıyla Güncellendi!*\n\n${guessEmoji(title)} *${title}*\n📍 *Konum:* ${loc}\n💰 *Fiyat:* ${price}\n\nSite güncellendi! 🌐`);
+        return new Response("OK", { status: 200 });
+      }
+
+      // B) /ekle ADIMLARI
+      if (replyToText.includes("➕ [EKLE-ADIM 1]")) {
+        const title = userText;
+        const nextMsg = 
+          `➕ [EKLE-ADIM 2]\n` +
+          `[TITLE:${title}]\n\n` +
+          `2️⃣ *Nerede yedin / Konum neresi?*\n` +
+          `_(Örn: Jungle Burger, Yurt, McDonald's)_`;
+        await sendForceReplyMessage(env.TELEGRAM_BOT_TOKEN, chatId, nextMsg);
+        return new Response("OK", { status: 200 });
+      }
+
+      if (replyToText.includes("➕ [EKLE-ADIM 2]")) {
+        const title = extractTag(replyToText, "TITLE");
+        const loc = normalizeLocation(userText);
+        const nextMsg = 
+          `➕ [EKLE-ADIM 3]\n` +
+          `[TITLE:${title}] [LOC:${loc}]\n\n` +
+          `3️⃣ *Fiyatı ne kadar tuttu?* *(Zorunlu)*\n` +
+          `_(Örn: 240 TL)_`;
+        await sendForceReplyMessage(env.TELEGRAM_BOT_TOKEN, chatId, nextMsg);
+        return new Response("OK", { status: 200 });
+      }
+
+      if (replyToText.includes("➕ [EKLE-ADIM 3]")) {
+        const title = extractTag(replyToText, "TITLE");
+        const loc = extractTag(replyToText, "LOC");
+        const price = formatPrice(userText);
+
+        if (!price) {
+          await sendForceReplyMessage(env.TELEGRAM_BOT_TOKEN, chatId, `⚠️ Fiyat girmek zorunludur! Lütfen geçerli bir fiyat yaz (Örn: 240 TL):\n\n${replyToText}`);
+          return new Response("OK", { status: 200 });
+        }
+
+        // GitHub'a yeni öğün olarak ekle
+        await saveNewMealToGitHub(env.GITHUB_TOKEN, {
+          title,
+          items: [title],
+          location: loc,
+          price,
+          category: guessCategory(title),
+          emoji: guessEmoji(title)
+        });
+
+        const { date, day } = getTurkeyTimeInfo();
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `✅ *Siteye Eklendi!*\n\n📅 ${day} (${date})\n${guessEmoji(title)} *${title}*\n📍 *Konum:* ${loc}\n💰 *Fiyat:* ${price}\n\n🌐 https://${REPO_OWNER}.github.io/${REPO_NAME}/`);
+        return new Response("OK", { status: 200 });
+      }
+
+      // --- ANA KOMUTLAR ---
 
       // 1. /start ve /yardim
       if (userText === "/start" || userText.toLowerCase() === "/yardim" || userText.toLowerCase() === "/help") {
         const helpMsg = 
-          "🍔 *Can Ne Yedi? Yönetim Botu*\n\n" +
-          "⚠️ *Kural:* Her öğünde *FİYAT* girmek zorunludur!\n\n" +
-          "📌 *Kullanabileceğin Yöntemler:*\n\n" +
-          "1️⃣ *Doğal Dille Yaz (AI):*\n" +
-          "• `Mc donaldsda hamburger menü yedim 230 tl yanında fuse tea şeftali`\n" +
-          "• `Yurtta tavuk dürüm ve kola gömdüm 140 lira`\n\n" +
-          "2️⃣ *Manuel Hızlı Ekleme:*\n" +
-          "• `/ekle Hamburger + Ayran | Jungle Burger | 250 TL`\n" +
-          "• veya sadece: `Yemek | Mekan | Fiyat`\n\n" +
-          "3️⃣ *Öğünleri Yönet:*\n" +
-          "• `/liste` : Son öğünleri numaralarıyla gösterir\n" +
-          "• `/sil 1` : 1 numaralı öğünü siteden siler\n" +
-          "• `/duzenle 1 Yemek | Mekan | 200 TL` : Öğünü günceller\n\n" +
-          "🌐 *Canlı Site:* https://" + REPO_OWNER + ".github.io/" + REPO_NAME + "/";
+          "🍔 *Can Ne Yedi? Yönetim Asistanı*\n\n" +
+          "Artık hiçbir karmaşık işaret (|) yazmana gerek yok! Bot sana tek tek sorar:\n\n" +
+          "📌 *Komutlar:*\n" +
+          "• `/ekle` : Sana adım adım ne yediğini, mekanını ve fiyatını sorarak ekler.\n" +
+          "• `/duzenle 1` : 1 numaralı öğünü adım adım düzenletir (değiştirmek istemediğine 'aynı' yazarsın).\n" +
+          "• `/liste` : Son öğünleri numaralarıyla gösterir.\n" +
+          "• `/sil 1` : 1 numaralı öğünü siler.\n\n" +
+          "🤖 *İstersen Doğal Dil ile Tek Cümle de Yazabilirsin:*\n" +
+          "• `Mc donaldsda hamburger menü yedim 230 tl yanında fuse tea şeftali`\n\n" +
+          "⚠️ *Kural:* Fiyat girmek her zaman zorunludur!";
         await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, helpMsg, "Markdown");
         return new Response("OK", { status: 200 });
       }
 
-      // 2. /liste : Son öğünleri listele
+      // 2. /ekle (Adım adım interaktif ekleme başlat)
+      if (userText.toLowerCase() === "/ekle" || userText.toLowerCase() === "/yeni") {
+        const step1Msg = 
+          `➕ [EKLE-ADIM 1]\n\n` +
+          `1️⃣ *Ne yedin ve ne içtin?*\n` +
+          `_(Örn: Hamburger + Ayran veya Tavuk Dürüm + Kola)_`;
+        await sendForceReplyMessage(env.TELEGRAM_BOT_TOKEN, chatId, step1Msg);
+        return new Response("OK", { status: 200 });
+      }
+
+      // 3. /liste
       if (userText.toLowerCase() === "/liste" || userText.toLowerCase() === "/list") {
         const githubFile = await getGitHubFile(env.GITHUB_TOKEN);
         const mealsList = JSON.parse(githubFile.content);
@@ -84,27 +229,58 @@ export default {
         }
 
         let listMsg = "📋 *Son Eklenen Öğünler:*\n\n";
-        flatMeals.slice(0, 10).forEach((item, index) => {
+        flatMeals.slice(0, 8).forEach((item, index) => {
           const num = index + 1;
-          const priceStr = item.meal.price ? ` - 💰 *${item.meal.price}*` : " - _(Fiyatsız)_";
-          listMsg += `*#${num}* [${item.date}] ${item.meal.emoji || '🍽️'} *${item.meal.title}*\n`;
+          const priceStr = item.meal.price ? ` - 💰 *${item.meal.price}*` : "";
+          listMsg += `*#${num}* [${item.day}] ${item.meal.emoji || '🍽️'} *${item.meal.title}*\n`;
           listMsg += `   📍 ${item.meal.location}${priceStr}\n\n`;
         });
 
         listMsg += "💡 *İşlemler:*\n";
-        listMsg += "• Silmek için: `/sil <numara>` (Örn: `/sil 1`)\n";
-        listMsg += "• Düzenlemek için: `/duzenle <numara> Yeni Yemek | Mekan | Fiyat`";
+        listMsg += "• Düzenlemek için: `/duzenle 1` (Bot sana tek tek sorar)\n";
+        listMsg += "• Silmek için: `/sil 1`";
 
         await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, listMsg, "Markdown");
         return new Response("OK", { status: 200 });
       }
 
-      // 3. /sil <numara>
+      // 4. /duzenle <no> (Adım adım interaktif düzenleme başlat)
+      if (userText.toLowerCase().startsWith("/duzenle")) {
+        const parts = userText.split(" ").filter(p => p.trim());
+        const targetNum = parseInt(parts[1], 10);
+        if (isNaN(targetNum) || targetNum < 1) {
+          await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⚠️ Lütfen düzenlemek istediğin öğünün numarasını yaz.\nÖrn: `/duzenle 1`\n(Numaraları görmek için `/liste` yazabilirsin)");
+          return new Response("OK", { status: 200 });
+        }
+
+        const githubFile = await getGitHubFile(env.GITHUB_TOKEN);
+        const mealsList = JSON.parse(githubFile.content);
+        const flatMeals = getFlattenedMeals(mealsList);
+
+        if (targetNum > flatMeals.length) {
+          await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `⚠️ Geçersiz numara! Listede ${flatMeals.length} öğün var. Kontrol için: /liste`);
+          return new Response("OK", { status: 200 });
+        }
+
+        const item = flatMeals[targetNum - 1];
+        const step1Msg = 
+          `✏️ [DÜZENLE-ADIM 1]\n` +
+          `[NO:${targetNum}] [TITLE:${item.meal.title}] [LOC:${item.meal.location}] [PRICE:${item.meal.price || 'null'}]\n\n` +
+          `1️⃣ *Yemek ve İçecek nedir?*\n` +
+          `Şu anki: _${item.meal.title}_\n` +
+          `_(Örn: Hamburger + Ayran)_\n\n` +
+          `💡 Değiştirmek istemiyorsan *aynı* yaz.`;
+
+        await sendForceReplyMessage(env.TELEGRAM_BOT_TOKEN, chatId, step1Msg);
+        return new Response("OK", { status: 200 });
+      }
+
+      // 5. /sil <no>
       if (userText.toLowerCase().startsWith("/sil")) {
         const parts = userText.split(" ").filter(p => p.trim());
         const targetNum = parseInt(parts[1], 10);
         if (isNaN(targetNum) || targetNum < 1) {
-          await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⚠️ Lütfen silinecek öğünün numarasını yazın. Örn: `/sil 1`\nÖğün numaralarını görmek için `/liste` yazabilirsiniz.");
+          await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⚠️ Lütfen silinecek öğünün numarasını yaz. Örn: `/sil 1`\n(Numaraları görmek için: `/liste`)");
           return new Response("OK", { status: 200 });
         }
 
@@ -113,182 +289,60 @@ export default {
         const flatMeals = getFlattenedMeals(mealsList);
 
         if (targetNum > flatMeals.length) {
-          await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `⚠️ Geçersiz numara! Listede toplam ${flatMeals.length} öğün var.`);
+          await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `⚠️ Geçersiz numara! Toplam ${flatMeals.length} öğün var.`);
           return new Response("OK", { status: 200 });
         }
 
         const itemToDelete = flatMeals[targetNum - 1];
-        
-        // Öğünü mealsList içinden çıkar
         const dayEntry = mealsList.find(d => d.date === itemToDelete.date);
         if (dayEntry) {
           dayEntry.meals = dayEntry.meals.filter(m => m.id !== itemToDelete.meal.id);
-          // Eğer günde hiç öğün kalmadıysa günü de sil
           if (dayEntry.meals.length === 0) {
             mealsList = mealsList.filter(d => d.date !== itemToDelete.date);
           }
         }
 
-        const updatedJson = JSON.stringify(mealsList, null, 2);
-        await updateGitHubFile(env.GITHUB_TOKEN, githubFile.sha, updatedJson, `chore: silindi (${itemToDelete.meal.title})`);
-
-        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `🗑️ *Öğün Silindi!*\n\n*${itemToDelete.meal.title}* (${itemToDelete.date}) siteden kaldırıldı.`);
+        await updateGitHubFile(env.GITHUB_TOKEN, githubFile.sha, JSON.stringify(mealsList, null, 2), `chore: silindi #${targetNum}`);
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `🗑️ *Öğün Silindi!*\n\n*${itemToDelete.meal.title}* siteden kaldırıldı.`);
         return new Response("OK", { status: 200 });
       }
 
-      // 4. /duzenle <numara> <bilgiler>
-      if (userText.toLowerCase().startsWith("/duzenle")) {
-        const firstSpace = userText.indexOf(" ");
-        if (firstSpace === -1) {
-          await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⚠️ Kullanım: `/duzenle <numara> Yemek | Mekan | Fiyat`\nÖrn: `/duzenle 1 Double Burger + Ayran | Jungle Burger | 280 TL`");
-          return new Response("OK", { status: 200 });
-        }
-
-        const rest = userText.slice(firstSpace + 1).trim();
-        const secondSpace = rest.indexOf(" ");
-        const targetNum = parseInt(rest.slice(0, secondSpace !== -1 ? secondSpace : rest.length), 10);
-        const newContent = secondSpace !== -1 ? rest.slice(secondSpace + 1).trim() : "";
-
-        if (isNaN(targetNum) || !newContent || !newContent.includes("|")) {
-          await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⚠️ Lütfen yeni bilgileri `Yemek | Mekan | Fiyat` formatında girin.\nÖrn: `/duzenle 1 Hamburger Menü | McDonald's | 230 TL`");
-          return new Response("OK", { status: 200 });
-        }
-
-        const githubFile = await getGitHubFile(env.GITHUB_TOKEN);
-        let mealsList = JSON.parse(githubFile.content);
-        const flatMeals = getFlattenedMeals(mealsList);
-
-        if (targetNum < 1 || targetNum > flatMeals.length) {
-          await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⚠️ Geçersiz öğün numarası. `/liste` yazarak kontrol edin.");
-          return new Response("OK", { status: 200 });
-        }
-
-        const parsedEdit = parseManualFormat(newContent);
-        if (!parsedEdit.meal.price) {
-          await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⚠️ *Fiyat zorunludur!* Lütfen fiyatı da belirtin (örn: `220 TL`).");
-          return new Response("OK", { status: 200 });
-        }
-
-        const oldItem = flatMeals[targetNum - 1];
-        const dayEntry = mealsList.find(d => d.date === oldItem.date);
-        if (dayEntry) {
-          const mealIdx = dayEntry.meals.findIndex(m => m.id === oldItem.meal.id);
-          if (mealIdx !== -1) {
-            dayEntry.meals[mealIdx] = {
-              ...dayEntry.meals[mealIdx],
-              title: parsedEdit.meal.title,
-              items: [parsedEdit.meal.title],
-              location: parsedEdit.meal.location,
-              price: parsedEdit.meal.price,
-              category: parsedEdit.meal.category,
-              emoji: parsedEdit.meal.emoji
-            };
-          }
-        }
-
-        const updatedJson = JSON.stringify(mealsList, null, 2);
-        await updateGitHubFile(env.GITHUB_TOKEN, githubFile.sha, updatedJson, `fix: düzenlendi (${parsedEdit.meal.title})`);
-
-        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `✏️ *Öğün Güncellendi!*\n\n${parsedEdit.meal.emoji} *${parsedEdit.meal.title}*\n📍 ${parsedEdit.meal.location}\n💰 *${parsedEdit.meal.price}*\n\nSite güncellendi! 🌐`);
-        return new Response("OK", { status: 200 });
-      }
-
-      // 5. Manuel Ekleme Komutu: /ekle veya doğrudan "Yemek | Mekan | Fiyat"
+      // 6. Doğal Dil ile Ekleme (AI)
+      await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⏳ Menü analiz ediliyor...");
       let parsedData = null;
-
-      if (userText.toLowerCase().startsWith("/ekle") || userText.includes("|")) {
-        const cleanInput = userText.toLowerCase().startsWith("/ekle") ? userText.slice(5).trim() : userText;
-        parsedData = parseManualFormat(cleanInput);
-
-        // FİYAT ZORUNLULUĞU KONTROLÜ
-        if (!parsedData.meal.price) {
-          const warnMsg = 
-            "⚠️ *Fiyat girmek zorunludur!*\n\n" +
-            "Lütfen fiyatı da ekleyerek şu formatta yaz:\n" +
-            "👉 `Yemek | Mekan | Fiyat`\n\n" +
-            "*Örnek:* `Hamburger + Ayran | Jungle Burger | 240 TL`";
-          await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, warnMsg, "Markdown");
-          return new Response("OK", { status: 200 });
-        }
-      } else {
-        // 6. Doğal Dil & AI ile Ekleme
-        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⏳ Menü analiz ediliyor...");
-        try {
-          parsedData = await parseMealWithGemini(userText, env.GEMINI_API_KEY);
-        } catch (aiErr) {
-          const fallbackPrompt = 
-            `⚠️ *Yapay zeka şu an meşgul.*\n\n` +
-            `Öğünü manuel eklemek için şu formatta gönder:\n` +
-            `👉 \`/ekle Yemek + İçecek | Mekan | Fiyat\`\n\n` +
-            `*Örnek:*\n\`/ekle Dürüm Menü + Kola | McDonald's | 220 TL\``;
-          await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, fallbackPrompt, "Markdown");
-          return new Response("OK", { status: 200 });
-        }
-
-        // FİYAT ZORUNLULUĞU KONTROLÜ (AI Çıktısı İçin)
-        if (!parsedData.meal.price) {
-          const noPriceMsg = 
-            `⚠️ *Fiyat girmek zorunludur!*\n\n` +
-            `Menüyü anladım: *${parsedData.meal.title}* (${parsedData.meal.location})\n` +
-            `Fakat fiyat belirtmemişsin.\n\n` +
-            `Lütfen fiyatıyla birlikte tekrar yaz, örn:\n` +
-            `👉 \`${userText} 220 TL\`\n` +
-            `veya manuel:\n` +
-            `👉 \`/ekle ${parsedData.meal.title} | ${parsedData.meal.location} | 220 TL\``;
-          await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, noPriceMsg, "Markdown");
-          return new Response("OK", { status: 200 });
-        }
-      }
-
-      // --- SİTEYE KAYDETME (GitHub API) ---
-      const githubFile = await getGitHubFile(env.GITHUB_TOKEN);
-      let mealsList = [];
       try {
-        mealsList = JSON.parse(githubFile.content);
-      } catch (e) {
-        mealsList = [];
+        parsedData = await parseMealWithGemini(userText, env.GEMINI_API_KEY);
+      } catch (aiErr) {
+        const fallbackMsg = 
+          `⚠️ Yapay zeka şu an meşgul.\n` +
+          `Öğünü hemen eklemek için **/ekle** yazabilirsin! (Bot sana tek tek soracaktır).`;
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, fallbackMsg);
+        return new Response("OK", { status: 200 });
       }
 
-      const targetDate = parsedData.date;
-      const targetDay = parsedData.day;
-      const newMeal = {
-        id: `${targetDate}-${Date.now().toString().slice(-4)}`,
-        title: parsedData.meal.title,
-        items: parsedData.meal.items || [parsedData.meal.title],
-        location: parsedData.meal.location || "Belirtilmedi",
-        category: parsedData.meal.category || "Fast Food",
-        emoji: parsedData.meal.emoji || "🍽️",
-        price: parsedData.meal.price,
-        note: parsedData.meal.note || ""
-      };
-
-      let dayEntry = mealsList.find(d => d.date === targetDate);
-      if (dayEntry) {
-        dayEntry.meals.push(newMeal);
-      } else {
-        mealsList.push({
-          date: targetDate,
-          day: targetDay,
-          meals: [newMeal]
-        });
+      // Fiyat zorunluluğu kontrolü
+      if (!parsedData.meal.price) {
+        const noPriceMsg = 
+          `⚠️ *Fiyat girmek zorunludur!*\n\n` +
+          `Menüyü anladım: *${parsedData.meal.title}* (${parsedData.meal.location})\n` +
+          `Fakat fiyat belirtmemişsin.\n\n` +
+          `Lütfen fiyatıyla birlikte tekrar yaz, örn:\n` +
+          `👉 \`${userText} 220 TL\`\n` +
+          `veya adım adım eklemek için: **/ekle**`;
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, noPriceMsg, "Markdown");
+        return new Response("OK", { status: 200 });
       }
 
-      mealsList.sort((a, b) => new Date(a.date) - new Date(b.date));
+      // Kaydet
+      await saveNewMealToGitHub(env.GITHUB_TOKEN, parsedData.meal, parsedData.date, parsedData.day);
 
-      const updatedJsonContent = JSON.stringify(mealsList, null, 2);
-      const commitMessage = `feat: ${targetDay} öğünü eklendi (${newMeal.title} - ${newMeal.price})`;
-      await updateGitHubFile(env.GITHUB_TOKEN, githubFile.sha, updatedJsonContent, commitMessage);
-
-      // Başarı Mesajı
       const successMsg = 
         `✅ *Harika, siteye eklendi!*\n\n` +
-        `📅 *Tarih:* ${targetDay} (${targetDate})\n` +
-        `${newMeal.emoji} *Öğün:* ${newMeal.title}\n` +
-        `📍 *Konum:* ${newMeal.location}\n` +
-        `💰 *Fiyat:* ${newMeal.price}\n` +
-        `🏷️ *Kategori:* ${newMeal.category}\n` +
-        (newMeal.note ? `💬 *Not:* ${newMeal.note}\n` : "") +
-        `\n🌐 *Canlı Site:* https://${REPO_OWNER}.github.io/${REPO_NAME}/`;
+        `📅 *Tarih:* ${parsedData.day} (${parsedData.date})\n` +
+        `${parsedData.meal.emoji} *Öğün:* ${parsedData.meal.title}\n` +
+        `📍 *Konum:* ${parsedData.meal.location}\n` +
+        `💰 *Fiyat:* ${parsedData.meal.price}\n\n` +
+        `🌐 https://${REPO_OWNER}.github.io/${REPO_NAME}/`;
 
       await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, successMsg, "Markdown");
       return new Response("OK", { status: 200 });
@@ -296,74 +350,106 @@ export default {
     } catch (error) {
       console.error(error);
       if (currentChatId && env.TELEGRAM_BOT_TOKEN) {
-        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, currentChatId, `❌ Hata oluştu: ${error.message}`);
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, currentChatId, `❌ Hata: ${error.message}`);
       }
       return new Response("Error: " + error.message, { status: 200 });
     }
   }
 };
 
-/**
- * Öğünleri en yeniden en eskiye tek düze listeye çevirir (numaralandırma için)
- */
+// --- YARDIMCI FONKSİYONLAR ---
+
+function isSame(text) {
+  const t = text.trim().toLowerCase();
+  return t === "aynı" || t === "ayni" || t === "aynisı" || t === "aynisi" || t === "same";
+}
+
+function extractTag(text, tag) {
+  const match = text.match(new RegExp(`\\[${tag}:(.*?)\\]`));
+  return match ? match[1].trim() : "";
+}
+
+function normalizeLocation(loc) {
+  const l = loc.trim().toLowerCase();
+  if (l.includes("yurt")) return "Yurt";
+  if (l.includes("mc") || l.includes("donald")) return "McDonald's";
+  if (l.includes("jungle")) return "Jungle Burger";
+  if (l.includes("burger king")) return "Burger King";
+  return loc.trim();
+}
+
+function formatPrice(p) {
+  if (!p) return null;
+  const clean = p.trim();
+  if (clean.includes("TL") || clean.includes("₺")) return clean;
+  return `${clean} TL`;
+}
+
+function guessEmoji(title) {
+  const l = title.toLowerCase();
+  if (l.includes("burger")) return "🍔";
+  if (l.includes("dürüm") || l.includes("zater")) return "🌯";
+  if (l.includes("pizza")) return "🍕";
+  if (l.includes("kahve")) return "☕";
+  if (l.includes("tavuk")) return "🍗";
+  return "🍽️";
+}
+
+function guessCategory(title) {
+  const l = title.toLowerCase();
+  if (l.includes("burger")) return "Fast Food";
+  if (l.includes("dürüm") || l.includes("zater")) return "Dürüm";
+  if (l.includes("pizza")) return "Fast Food";
+  if (l.includes("kahve")) return "İçecek";
+  return "Fast Food";
+}
+
 function getFlattenedMeals(mealsList) {
   const result = [];
-  // En yeni gün en başta olsun
   const sortedDays = [...mealsList].sort((a, b) => new Date(b.date) - new Date(a.date));
   for (const day of sortedDays) {
     const reversedMeals = [...(day.meals || [])].reverse();
     for (const meal of reversedMeals) {
-      result.push({
-        date: day.date,
-        day: day.day,
-        meal
-      });
+      result.push({ date: day.date, day: day.day, meal });
     }
   }
   return result;
 }
 
-/**
- * Manuel Format Çözücü: "Yemek | Mekan | Fiyat"
- */
-function parseManualFormat(text) {
-  const parts = text.split("|").map(p => p.trim());
-  const { date, day } = getTurkeyTimeInfo();
-  
-  const title = parts[0] || "Öğün";
-  const location = parts[1] || "Yurt";
-  let rawPrice = parts[2] ? parts[2].trim() : null;
-  let price = null;
-  if (rawPrice) {
-    price = (rawPrice.includes("TL") || rawPrice.includes("₺")) ? rawPrice : `${rawPrice} TL`;
+async function saveNewMealToGitHub(token, meal, customDate = null, customDay = null) {
+  const githubFile = await getGitHubFile(token);
+  let mealsList = JSON.parse(githubFile.content);
+
+  const { date: trDate, day: trDay } = getTurkeyTimeInfo();
+  const targetDate = customDate || trDate;
+  const targetDay = customDay || trDay;
+
+  const newMeal = {
+    id: `${targetDate}-${Date.now().toString().slice(-4)}`,
+    title: meal.title,
+    items: meal.items || [meal.title],
+    location: meal.location || "Yurt",
+    category: meal.category || "Fast Food",
+    emoji: meal.emoji || "🍽️",
+    price: meal.price || null,
+    note: meal.note || ""
+  };
+
+  let dayEntry = mealsList.find(d => d.date === targetDate);
+  if (dayEntry) {
+    dayEntry.meals.push(newMeal);
+  } else {
+    mealsList.push({
+      date: targetDate,
+      day: targetDay,
+      meals: [newMeal]
+    });
   }
 
-  let emoji = "🍽️";
-  let category = "Fast Food";
-  const lower = title.toLowerCase();
-  if (lower.includes("burger") || lower.includes("hamburger")) { emoji = "🍔"; category = "Fast Food"; }
-  else if (lower.includes("dürüm") || lower.includes("zater")) { emoji = "🌯"; category = "Dürüm"; }
-  else if (lower.includes("pizza")) { emoji = "🍕"; category = "Fast Food"; }
-  else if (lower.includes("kahve")) { emoji = "☕"; category = "İçecek"; }
-
-  return {
-    date,
-    day,
-    meal: {
-      title,
-      items: [title],
-      location,
-      price,
-      category,
-      emoji,
-      note: ""
-    }
-  };
+  mealsList.sort((a, b) => new Date(a.date) - new Date(b.date));
+  await updateGitHubFile(token, githubFile.sha, JSON.stringify(mealsList, null, 2), `feat: ${targetDay} öğünü eklendi (${newMeal.title} - ${newMeal.price})`);
 }
 
-/**
- * Gemini Flash API Çağrısı
- */
 async function parseMealWithGemini(userMessage, apiKey) {
   const { date: todayDateStr, day: todayDayName } = getTurkeyTimeInfo();
 
@@ -397,58 +483,27 @@ SADECE geçerli bir JSON yanıtı döndür:
 }
 `;
 
-  const modelsToTry = ["gemini-3.8-flash", "gemini-3.8-flash-lite"];
-  let lastError = null;
-
-  for (const model of modelsToTry) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        if (attempt > 0) {
-          await new Promise(r => setTimeout(r, 1500));
-        }
-
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-        const response = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: "user",
-                parts: [{ text: `${systemPrompt}\n\nKullanıcı Mesajı: "${userMessage}"` }]
-              }
-            ],
-            generationConfig: {
-              responseMimeType: "application/json"
-            }
-          })
-        });
-
-        if (response.status === 503) {
-          lastError = new Error(`${model} yoğun (503)`);
-          continue;
-        }
-
-        if (!response.ok) {
-          const errText = await response.text();
-          throw new Error(`${model} Hatası (${response.status}): ${errText}`);
-        }
-
-        const result = await response.json();
-        const textOutput = result.candidates[0].content.parts[0].text;
-        return JSON.parse(textOutput);
-      } catch (err) {
-        lastError = err;
+  const models = ["gemini-3.8-flash", "gemini-3.8-flash-lite"];
+  for (const m of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `${systemPrompt}\n\nKullanıcı: "${userMessage}"` }] }],
+          generationConfig: { responseMimeType: "application/json" }
+        })
+      });
+      if (res.ok) {
+        const json = await res.json();
+        return JSON.parse(json.candidates[0].content.parts[0].text);
       }
-    }
+    } catch (e) {}
   }
-
-  throw lastError || new Error("Gemini servisi şu an yoğun.");
+  throw new Error("Gemini servisi meşgul.");
 }
 
-/**
- * GitHub API: Dosya İçeriğini ve SHA değerini al
- */
 async function getGitHubFile(token) {
   const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}?ref=${GITHUB_BRANCH}`;
   const response = await fetch(url, {
@@ -458,30 +513,17 @@ async function getGitHubFile(token) {
       "Accept": "application/vnd.github.v3+json"
     }
   });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`GitHub getFile Hatası (${response.status}): ${errText}`);
-  }
-
+  if (!response.ok) throw new Error(`GitHub getFile Hatası: ${response.status}`);
   const data = await response.json();
   const decodedContent = new TextDecoder().decode(Uint8Array.from(atob(data.content), c => c.charCodeAt(0)));
-  return {
-    sha: data.sha,
-    content: decodedContent
-  };
+  return { sha: data.sha, content: decodedContent };
 }
 
-/**
- * GitHub API: Dosyayı güncelle ve commit at
- */
 async function updateGitHubFile(token, sha, content, message) {
   const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
   const utf8Bytes = new TextEncoder().encode(content);
   let binary = "";
-  for (let i = 0; i < utf8Bytes.length; i++) {
-    binary += String.fromCharCode(utf8Bytes[i]);
-  }
+  for (let i = 0; i < utf8Bytes.length; i++) binary += String.fromCharCode(utf8Bytes[i]);
   const base64Content = btoa(binary);
 
   const response = await fetch(url, {
@@ -492,33 +534,34 @@ async function updateGitHubFile(token, sha, content, message) {
       "Accept": "application/vnd.github.v3+json",
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({
-      message: message,
-      content: base64Content,
-      sha: sha,
-      branch: GITHUB_BRANCH
-    })
+    body: JSON.stringify({ message, content: base64Content, sha, branch: GITHUB_BRANCH })
   });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`GitHub updateFile Hatası (${response.status}): ${errText}`);
-  }
-
+  if (!response.ok) throw new Error(`GitHub updateFile Hatası: ${response.status}`);
   return await response.json();
 }
 
-/**
- * Telegram API: Mesaj Gönder
- */
 async function sendTelegramMessage(botToken, chatId, text, parseMode = null) {
+  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+  const body = { chat_id: chatId, text };
+  if (parseMode) body.parse_mode = parseMode;
+  await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+}
+
+async function sendForceReplyMessage(botToken, chatId, text) {
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
   const body = {
     chat_id: chatId,
-    text: text
+    text,
+    parse_mode: "Markdown",
+    reply_markup: {
+      force_reply: true,
+      selective: true
+    }
   };
-  if (parseMode) body.parse_mode = parseMode;
-
   await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
