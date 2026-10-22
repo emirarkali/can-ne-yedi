@@ -6,7 +6,10 @@
       {
         "id": "2026-10-19-1",
         "title": "Hamburger + Ayran",
-        "items": ["Hamburger", "Ayran"],
+        "items": [
+          "Hamburger",
+          "Ayran"
+        ],
         "location": "Yurt",
         "category": "Fast Food",
         "emoji": "🍔",
@@ -21,7 +24,10 @@
       {
         "id": "2026-10-20-1",
         "title": "Hamburger + Fuse Tea Şeftali",
-        "items": ["Hamburger", "Fuse Tea Şeftali"],
+        "items": [
+          "Hamburger",
+          "Fuse Tea Şeftali"
+        ],
         "location": "McDonald's",
         "category": "Fast Food",
         "emoji": "🍔",
@@ -36,7 +42,10 @@
       {
         "id": "2026-10-21-1",
         "title": "Hamburger + Fuse Tea Şeftali",
-        "items": ["Hamburger", "Fuse Tea Şeftali"],
+        "items": [
+          "Hamburger",
+          "Fuse Tea Şeftali"
+        ],
         "location": "McDonald's",
         "category": "Fast Food",
         "emoji": "🍔",
@@ -51,7 +60,10 @@
       {
         "id": "2026-10-22-1",
         "title": "Tavuk Dürüm (Zater) + Kola",
-        "items": ["Tavuk Dürüm (Zater)", "Kola"],
+        "items": [
+          "Tavuk Dürüm (Zater)",
+          "Kola"
+        ],
         "location": "Yurt",
         "category": "Dürüm",
         "emoji": "🌯",
@@ -60,13 +72,27 @@
       {
         "id": "2026-10-22-2",
         "title": "Hamburger + Özhisar Ayran",
-        "items": ["Hamburger", "Özhisar Ayran"],
+        "items": [
+          "Hamburger",
+          "Özhisar Ayran"
+        ],
         "location": "Jungle Burger",
         "category": "Gurme Burger",
         "emoji": "🍔",
         "note": "Jungle Burger kapanış"
+      },
+      {
+        "id": "2026-10-22-0142",
+        "title": "Dürüm Menü + Kola",
+        "items": [
+          "Dürüm Menü",
+          "Kola"
+        ],
+        "location": "McDonald's",
+        "category": "Fast Food",
+        "emoji": "🌯",
+        "note": ""
       }
     ]
   }
 ]
-
