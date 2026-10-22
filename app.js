@@ -8,7 +8,7 @@ const fallbackData = [
         "id": "2026-10-19-1",
         "title": "Hamburger + Ayran",
         "items": ["Hamburger", "Ayran"],
-        "location": "Yurtta",
+        "location": "Yurt",
         "category": "Fast Food",
         "emoji": "🍔",
         "note": "Haftanın açılış klasiği"
@@ -51,11 +51,11 @@ const fallbackData = [
     "meals": [
       {
         "id": "2026-10-22-1",
-        "title": "Zater + Kola",
-        "items": ["Zater", "Kola"],
-        "location": "Yurtta",
-        "category": "Fırın / Börek",
-        "emoji": "🫓",
+        "title": "Tavuk Dürüm (Zater) + Kola",
+        "items": ["Tavuk Dürüm (Zater)", "Kola"],
+        "location": "Yurt",
+        "category": "Dürüm",
+        "emoji": "🌯",
         "note": "Günün ilk lezzeti"
       },
       {
@@ -78,7 +78,7 @@ let searchQuery = '';
 // Location color palette mapping for badges
 const locationColors = {
   "McDonald's": "bg-yellow-500/10 text-yellow-400 border-yellow-500/30",
-  "Yurtta": "bg-blue-500/10 text-blue-400 border-blue-500/30",
+  "Yurt": "bg-blue-500/10 text-blue-400 border-blue-500/30",
   "Jungle Burger": "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
 };
 
@@ -378,3 +378,4 @@ copySnippetBtn.addEventListener('click', async () => {
 document.addEventListener('DOMContentLoaded', () => {
   loadMeals();
 });
+

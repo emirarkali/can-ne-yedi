@@ -11,7 +11,7 @@ Can'ın haftalık yemek günlüğü, kesintisiz yemek zinciri ve gurme duraklar�
 - 🔥 **Yemek Zinciri (Streak):** Gün gün ne yediyse zincir halinde kesintisiz takip.
 - 📱 **Mobil Uyumlu & Modern Arayüz:** Modern dark mode gurme teması, Tailwind CSS ve akıcı animasyonlar.
 - 📍 **Konum ve Mekan Odaklı:** Yurt, McDonald's, Jungle Burger gibi öğünün nerede yendiği bilgisi.
-- 🥤 **Çoklu Öğün Desteği:** Bir günde birden fazla öğün yendiğinde (örn. Perşembe günü zater + kola ve hamburger + ayran) alt alta kartlar halinde listeleme.
+- 🥤 **Çoklu Öğün Desteği:** Bir günde birden fazla öğün yendiğinde (örn. Perşembe günü Tavuk Dürüm + kola ve hamburger + ayran) alt alta kartlar halinde listeleme.
 - 🔍 **Arama ve Mekan Filtreleri:** Mekana veya yiyeceğe göre anlık filtreleme.
 - ⚡ **Kolay Güncelleme:** `data/meals.json` dosyasına yeni bir gün objesi ekleyip pushlamak yeterli!
 
@@ -21,10 +21,10 @@ Can'ın haftalık yemek günlüğü, kesintisiz yemek zinciri ve gurme duraklar�
 
 | Tarih | Gün | Öğün(ler) | Konum |
 | :--- | :--- | :--- | :--- |
-| **19 Ekim 2026** | Pazartesi | Hamburger + Ayran | Yurtta |
+| **19 Ekim 2026** | Pazartesi | Hamburger + Ayran | Yurt |
 | **20 Ekim 2026** | Salı | Hamburger + Kola | McDonald's |
 | **21 Ekim 2026** | Çarşamba | Hamburger + Kola | McDonald's |
-| **22 Ekim 2026** | Perşembe | 1. Zater + Kola<br>2. Hamburger + Ayran | Yurtta<br>Jungle Burger |
+| **22 Ekim 2026** | Perşembe | 1. Tavuk Dürüm (Zater) + Kola<br>2. Hamburger + Ayran | Yurt<br>Jungle Burger |
 
 ---
 
@@ -61,3 +61,4 @@ git push origin main
 ---
 
 Geliştirici: [@emirarkali](https://github.com/emirarkali)
+

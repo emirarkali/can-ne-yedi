@@ -7,7 +7,7 @@
         "id": "2026-10-19-1",
         "title": "Hamburger + Ayran",
         "items": ["Hamburger", "Ayran"],
-        "location": "Yurtta",
+        "location": "Yurt",
         "category": "Fast Food",
         "emoji": "🍔",
         "note": "Haftanın açılış klasiği"
@@ -50,11 +50,11 @@
     "meals": [
       {
         "id": "2026-10-22-1",
-        "title": "Zater + Kola",
-        "items": ["Zater", "Kola"],
-        "location": "Yurtta",
-        "category": "Fırın / Börek",
-        "emoji": "🫓",
+        "title": "Tavuk Dürüm (Zater) + Kola",
+        "items": ["Tavuk Dürüm (Zater)", "Kola"],
+        "location": "Yurt",
+        "category": "Dürüm",
+        "emoji": "🌯",
         "note": "Günün ilk lezzeti"
       },
       {
@@ -69,3 +69,4 @@
     ]
   }
 ]
+
