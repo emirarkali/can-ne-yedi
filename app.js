@@ -149,7 +149,7 @@ async function loadMeals() {
     allDaysData = fallbackData;
   }
 
-  // Calculate statistics
+  // Calculate statistics (default: Bu Hafta)
   computeStats();
   // Build location filter buttons
   setupLocationFilters();
@@ -157,15 +157,115 @@ async function loadMeals() {
   renderTimeline();
 }
 
+let currentStatsPeriod = 'current'; // 'current', 'prev', 'all'
+
+function getWeekBounds(referenceDate = new Date()) {
+  const d = new Date(referenceDate);
+  // Turkey ISO week: Pazartesi=0, Pazar=6
+  const day = (d.getDay() + 6) % 7;
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - day);
+  monday.setHours(0, 0, 0, 0);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+
+  const prevMonday = new Date(monday);
+  prevMonday.setDate(monday.getDate() - 7);
+  prevMonday.setHours(0, 0, 0, 0);
+
+  const prevSunday = new Date(monday);
+  prevSunday.setDate(monday.getDate() - 1);
+  prevSunday.setHours(23, 59, 59, 999);
+
+  return {
+    current: { start: monday, end: sunday },
+    prev: { start: prevMonday, end: prevSunday }
+  };
+}
+
+function formatShortDateTr(d) {
+  const monthNames = [
+    'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+    'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
+  ];
+  return `${d.getDate()} ${monthNames[d.getMonth()]}`;
+}
+
+window.setStatsPeriod = function(period) {
+  currentStatsPeriod = period;
+  updateStatsPeriodTabs();
+  computeStats();
+  if (window.lucide) lucide.createIcons();
+};
+
+function updateStatsPeriodTabs() {
+  const tabs = ['current', 'prev', 'all'];
+  tabs.forEach(t => {
+    const btn = document.getElementById('tabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
+    if (!btn) return;
+    if (t === currentStatsPeriod) {
+      btn.className = "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all bg-brand-500 text-white shadow-sm shadow-brand-500/20";
+    } else {
+      btn.className = "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-400 hover:text-white";
+    }
+  });
+}
+
 function computeStats() {
-  const totalDays = allDaysData.length;
+  const allTimeDaysCount = allDaysData.length;
+
+  // En son kaydın tarihini veya bugünü referans al
+  let refDate = new Date();
+  if (allDaysData.length > 0) {
+    const dates = allDaysData.map(d => new Date(d.date + "T12:00:00Z")).filter(d => !isNaN(d.getTime()));
+    if (dates.length > 0) {
+      refDate = new Date(Math.max(...dates.map(d => d.getTime())));
+    }
+  }
+
+  const { current, prev } = getWeekBounds(refDate);
+
+  // Tarih aralığı metnini ve harcama etiketini güncelle
+  const rangeEl = document.getElementById('statsPeriodDateRange');
+  const labelEl = document.getElementById('expenseLabel');
+
+  if (rangeEl) {
+    if (currentStatsPeriod === 'current') {
+      rangeEl.innerHTML = `<i data-lucide="calendar" class="w-3.5 h-3.5 text-brand-400"></i> ${formatShortDateTr(current.start)} - ${formatShortDateTr(current.end)} ${current.end.getFullYear()}`;
+      if (labelEl) labelEl.innerText = "Bu Hafta Harcama";
+    } else if (currentStatsPeriod === 'prev') {
+      rangeEl.innerHTML = `<i data-lucide="calendar" class="w-3.5 h-3.5 text-brand-400"></i> ${formatShortDateTr(prev.start)} - ${formatShortDateTr(prev.end)} ${prev.end.getFullYear()}`;
+      if (labelEl) labelEl.innerText = "Geçen Hafta Harcama";
+    } else {
+      rangeEl.innerHTML = `<i data-lucide="calendar" class="w-3.5 h-3.5 text-brand-400"></i> Tüm Kayıtlar (${allTimeDaysCount} Gün)`;
+      if (labelEl) labelEl.innerText = "Toplam Harcama";
+    }
+  }
+
+  // Seçili döneme ait günleri filtrele
+  let targetDays = allDaysData;
+  if (currentStatsPeriod === 'current') {
+    targetDays = allDaysData.filter(d => {
+      const dt = new Date(d.date + "T12:00:00Z");
+      return dt >= current.start && dt <= current.end;
+    });
+  } else if (currentStatsPeriod === 'prev') {
+    targetDays = allDaysData.filter(d => {
+      const dt = new Date(d.date + "T12:00:00Z");
+      return dt >= prev.start && dt <= prev.end;
+    });
+  }
+
+  const periodDaysCount = targetDays.length;
   let totalMeals = 0;
   let burgerCount = 0;
   let colaCount = 0;
   let totalExpense = 0;
   const locationsSet = new Set();
 
-  allDaysData.forEach(day => {
+  targetDays.forEach(day => {
     (day.meals || []).forEach(meal => {
       totalMeals++;
       if (meal.location) locationsSet.add(meal.location.trim());
@@ -191,7 +291,7 @@ function computeStats() {
     });
   });
 
-  document.getElementById('totalDays').innerHTML = `<i data-lucide="calendar" class="w-4 h-4 text-brand-400"></i> ${totalDays} Gün`;
+  document.getElementById('totalDays').innerHTML = `<i data-lucide="calendar" class="w-4 h-4 text-brand-400"></i> ${periodDaysCount} Gün`;
   document.getElementById('totalMeals').innerHTML = `<i data-lucide="utensils" class="w-4 h-4 text-emerald-400"></i> ${totalMeals} Öğün`;
   document.getElementById('burgerCountVal').innerText = `${burgerCount} Adet`;
   if (document.getElementById('colaCountVal')) {
@@ -201,7 +301,7 @@ function computeStats() {
     document.getElementById('expenseVal').innerText = `${totalExpense.toLocaleString('tr-TR')} ₺`;
   }
   document.getElementById('totalLocations').innerHTML = `<i data-lucide="map-pin" class="w-4 h-4 text-rose-400"></i> ${locationsSet.size} Yer`;
-  document.getElementById('streakCount').innerText = `${totalDays} Gün`;
+  document.getElementById('streakCount').innerText = `${allTimeDaysCount} Gün`;
 }
 
 function setupLocationFilters() {
