@@ -594,27 +594,30 @@ async function handleIncomingUpdate(update, env) {
     }
 
     // ============================================================
-    // 3. ANA KOMUTLAR
+    // 3. ANA KOMUTLAR (Başına / koymak zorunlu DEĞİLDİR!)
     // ============================================================
+    const cleanCmd = userText.toLowerCase().replace(/^\//, "").trim();
+    const cmdParts = cleanCmd.split(/\s+/);
+    const cmdWord = cmdParts[0];
 
     // /start ve /yardim
-    if (userText === "/start" || userText.toLowerCase() === "/yardim" || userText.toLowerCase() === "/help") {
+    if (cmdWord === "start" || cmdWord === "yardim" || cmdWord === "yardım" || cmdWord === "help") {
       const helpMsg = 
         "🍔 *Can Ne Yedi? Yönetim Asistanı*\n\n" +
-        "📌 *Komutlar:*\n" +
-        "• `/ekle` : Adım adım sorarak yeni öğün ekler.\n" +
-        "• `/duzenle` : Listeyi açar, seçtiğin öğünün parametrelerini kopyalanabilir şablon olarak verir!\n" +
-        "• `/liste` : Son öğünleri numaralarıyla gösterir.\n" +
-        "• `/sil` : Listeyi açar ve numarasını sorarak sildirir.\n" +
-        "• `/iptal` : Devam eden işlemi iptal eder.\n\n" +
+        "📌 *Komutlar (ister / ile ister doğrudan yaz):*\n" +
+        "• `ekle` : Adım adım sorarak yeni öğün ekler.\n" +
+        "• `duzenle` : Listeyi açar, seçtiğin öğünün parametrelerini kopyalanabilir şablon olarak verir!\n" +
+        "• `liste` : Son öğünleri numaralarıyla gösterir.\n" +
+        "• `sil` : Listeyi açar ve numarasını sorarak sildirir.\n" +
+        "• `iptal` : Devam eden işlemi iptal eder.\n\n" +
         "🤖 *Doğal Dil ile Hızlı Ekleme:*\n" +
-        "• `Mc donaldsda hamburger menü yedim 230 tl yanında fuse tea şeftali`";
+        "• `McDonald'sda hamburger menü yedim 230 tl yanında fuse tea şeftali`";
       await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, helpMsg, "Markdown");
       return;
     }
 
     // /ekle
-    if (userText.toLowerCase() === "/ekle" || userText.toLowerCase() === "/yeni") {
+    if (cmdWord === "ekle" || cmdWord === "yeni" || cmdWord === "add") {
       userSessions.set(chatId, { action: "ekle", step: 1 });
       const { date: todayDate, day: todayDay } = getTurkeyTimeInfo();
       const step1Msg = 
@@ -627,7 +630,7 @@ async function handleIncomingUpdate(update, env) {
     }
 
     // /liste
-    if (userText.toLowerCase() === "/liste" || userText.toLowerCase() === "/list") {
+    if (cmdWord === "liste" || cmdWord === "list") {
       const githubFile = await getGitHubFile(env.GITHUB_TOKEN);
       const mealsList = JSON.parse(githubFile.content);
       const flatMeals = getFlattenedMeals(mealsList);
@@ -646,16 +649,16 @@ async function handleIncomingUpdate(update, env) {
       });
 
       listMsg += "💡 *İşlemler:*\n";
-      listMsg += "• Düzenlemek için: `/duzenle`\n";
-      listMsg += "• Silmek için: `/sil`";
+      listMsg += "• Düzenlemek için: `duzenle`\n";
+      listMsg += "• Silmek için: `sil`";
 
       await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, listMsg, "Markdown");
       return;
     }
 
     // /duzenle (ARGÜMANSIZ: Önce listeyi açar, numarayı seçtirir!)
-    if (userText.toLowerCase() === "/duzenle" || userText.toLowerCase().startsWith("/duzenle ")) {
-      const parts = userText.split(" ").filter(p => p.trim());
+    if (cmdWord === "duzenle" || cmdWord === "düzenle" || cmdWord === "edit") {
+      const parts = cmdParts;
       const githubFile = await getGitHubFile(env.GITHUB_TOKEN);
       const mealsList = JSON.parse(githubFile.content);
       const flatMeals = getFlattenedMeals(mealsList);
@@ -665,7 +668,7 @@ async function handleIncomingUpdate(update, env) {
         return;
       }
 
-      // Eğer kullanıcı doğrudan "/duzenle 3" yazdıysa o öğünün şablonunu hemen aç
+      // Eğer kullanıcı doğrudan "duzenle 3" yazdıysa o öğünün şablonunu hemen aç
       if (parts.length > 1 && !isNaN(parseInt(parts[1], 10))) {
         const targetNum = parseInt(parts[1], 10);
         if (targetNum > flatMeals.length || targetNum < 1) {
@@ -724,7 +727,7 @@ async function handleIncomingUpdate(update, env) {
         return;
       }
 
-      // Sadece "/duzenle" yazıldıysa: Listeyi göster ve numarayı sor
+      // Sadece "duzenle" yazıldıysa: Listeyi göster ve numarayı sor
       userSessions.set(chatId, { action: "duzenle_select_num" });
 
       let listMsg = "✏️ [DÜZENLEME MODU]\n\n📋 *Mevcut Öğünler:*\n\n";
@@ -750,8 +753,8 @@ async function handleIncomingUpdate(update, env) {
     }
 
     // /sil (Argümansız /sil -> Önce listeyi açar ve numarayı sorar!)
-    if (userText.toLowerCase() === "/sil" || userText.toLowerCase().startsWith("/sil ")) {
-      const parts = userText.split(" ").filter(p => p.trim());
+    if (cmdWord === "sil" || cmdWord === "delete" || cmdWord === "remove") {
+      const parts = cmdParts;
       const githubFile = await getGitHubFile(env.GITHUB_TOKEN);
       let mealsList = JSON.parse(githubFile.content);
       const flatMeals = getFlattenedMeals(mealsList);
@@ -807,12 +810,18 @@ async function handleIncomingUpdate(update, env) {
     }
 
     // ============================================================
-    // 4. Bilinmeyen Komut ve Şablon Kontrolü (Yapay Zekaya Gitmesini Engelle)
+    // 4. Bilinmeyen Komut, Kısa Metin ve Şablon Kontrolü (Yapay Zekaya Gitmesini Engelle)
     // ============================================================
-    if (userText.startsWith("/")) {
+    if (userText.startsWith("/") || cmdParts.length === 1) {
       const unknownMsg = 
-        `❓ *Bilinmeyen bir komut yazdın:* \`${userText}\`\n\n` +
-        `Kullanabileceğin komutları görmek için: **/yardim**`;
+        `❓ *Komut anlaşılamadı:* \`${userText}\`\n\n` +
+        `💡 *Kullanabileceğin komutlar (başına / koyman zorunlu DEĞİLDİR):*\n` +
+        `• *ekle* : Adım adım yeni öğün ekler\n` +
+        `• *duzenle* : Öğünleri listeler ve düzenletir\n` +
+        `• *liste* : Son öğünleri gösterir\n` +
+        `• *sil* : Öğün siler\n` +
+        `• *iptal* : İşlemi iptal eder\n\n` +
+        `_(Doğal dille yemek eklemek için ne yediğini ve fiyatını tam cümle olarak yazmalısın, örn: "Yurtta hamburger yedim 220 TL")_`;
       await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, unknownMsg, "Markdown");
       return;
     }
