@@ -783,22 +783,54 @@ function formatPrice(p) {
 function guessEmoji(title) {
   if (!title) return "🍽️";
   const l = title.toLowerCase();
-  if (l.includes("burger")) return "🍔";
-  if (l.includes("dürüm") || l.includes("zater") || l.includes("köfte") || l.includes("kofte")) return "🌯";
+
+  // Fast food & Ana Yemekler
+  if (l.includes("burger") || l.includes("whopper") || l.includes("big mac")) return "🍔";
   if (l.includes("pizza")) return "🍕";
-  if (l.includes("kahve") || l.includes("kola") || l.includes("ayran") || l.includes("şalgam") || l.includes("salgam") || l.includes("tea")) return "🥤";
-  if (l.includes("tavuk")) return "🍗";
+  if (l.includes("tost") || l.includes("sandviç") || l.includes("sandvic") || l.includes("kumru") || l.includes("ekmek arası")) return "🥪";
+  if (l.includes("dürüm") || l.includes("durum") || l.includes("tantuni") || l.includes("çiğ köfte") || l.includes("cig kofte") || l.includes("wrap") || l.includes("zater")) return "🌯";
+  if (l.includes("döner") || l.includes("doner") || l.includes("kebap") || l.includes("iskender")) return "🥙";
+  if (l.includes("köfte") || l.includes("kofte")) return "🧆";
+  if (l.includes("çorba") || l.includes("corba") || l.includes("mercimek") || l.includes("ezogelin") || l.includes("yayla") || l.includes("paça") || l.includes("paca")) return "🍲";
+  if (l.includes("patates") || l.includes("fries")) return "🍟";
+  if (l.includes("tavuk") || l.includes("nugget") || l.includes("şinitzel") || l.includes("sinitzel") || l.includes("kanat") || l.includes("wings") || l.includes("strips")) return "🍗";
+  if (l.includes("makarna") || l.includes("pasta") || l.includes("spagetti") || l.includes("spaghetti") || l.includes("noodle") || l.includes("mantı") || l.includes("manti")) return "🍝";
+  if (l.includes("pilav") || l.includes("pirinç")) return "🍚";
+  if (l.includes("lahmacun") || l.includes("pide")) return "🫓";
+  if (l.includes("börek") || l.includes("borek") || l.includes("poğaça") || l.includes("pogaca") || l.includes("simit") || l.includes("boyoz") || l.includes("açma")) return "🥐";
+  if (l.includes("kahvaltı") || l.includes("kahvalti") || l.includes("menemen") || l.includes("yumurta") || l.includes("omlet")) return "🍳";
+  if (l.includes("salata") || l.includes("salad") || l.includes("bowl")) return "🥗";
+  if (l.includes("balık") || l.includes("balik") || l.includes("sushi") || l.includes("ton balık")) return "🐟";
+  if (l.includes("waffle") || l.includes("pankek") || l.includes("pancake") || l.includes("krep")) return "🧇";
+  if (l.includes("tatlı") || l.includes("tatli") || l.includes("pasta") || l.includes("cheesecake") || l.includes("brownie") || l.includes("kek") || l.includes("sufle")) return "🍰";
+  if (l.includes("dondurma")) return "🍦";
+
+  // İçecekler
+  if (l.includes("ayran") || l.includes("süt") || l.includes("sut")) return "🥛";
+  if (l.includes("kahve") || l.includes("latte") || l.includes("espresso") || l.includes("cappuccino") || l.includes("americano") || l.includes("mocha") || l.includes("filtre")) return "☕";
+  if (l.includes("çay") || l.includes("cay") || l.includes("bitki çayı")) return "🫖";
+  if (l.includes("su") || l.includes("soda") || l.includes("maden suyu")) return "💧";
+  if (l.includes("kola") || l.includes("coke") || l.includes("fanta") || l.includes("gazoz") || l.includes("şalgam") || l.includes("salgam") || l.includes("fuse") || l.includes("tea") || l.includes("ice tea") || l.includes("soğuk çay") || l.includes("meyve suyu") || l.includes("redbull") || l.includes("monster")) return "🥤";
+  if (l.includes("bira") || l.includes("beer")) return "🍺";
+
   return "🍽️";
 }
 
 function guessCategory(title) {
   if (!title) return "Fast Food";
   const l = title.toLowerCase();
-  if (l.includes("burger")) return "Fast Food";
-  if (l.includes("dürüm") || l.includes("zater") || l.includes("köfte") || l.includes("kofte")) return "Dürüm / Çiğ Köfte";
-  if (l.includes("pizza")) return "Fast Food";
-  if (l.includes("kahve") || l.includes("kola") || l.includes("ayran") || l.includes("şalgam") || l.includes("salgam")) return "İçecek";
-  return "Fast Food";
+  if (l.includes("burger") || l.includes("pizza") || l.includes("patates") || l.includes("nugget")) return "Fast Food";
+  if (l.includes("tost") || l.includes("sandviç") || l.includes("sandvic") || l.includes("kumru") || l.includes("ekmek arası")) return "Tost & Sandviç";
+  if (l.includes("dürüm") || l.includes("durum") || l.includes("tantuni") || l.includes("çiğ köfte") || l.includes("cig kofte") || l.includes("zater")) return "Dürüm & Çiğ Köfte";
+  if (l.includes("çorba") || l.includes("corba")) return "Çorba";
+  if (l.includes("döner") || l.includes("doner") || l.includes("kebap") || l.includes("iskender") || l.includes("köfte") || l.includes("kofte")) return "Döner & Kebap";
+  if (l.includes("tavuk")) return "Tavuk";
+  if (l.includes("makarna") || l.includes("mantı") || l.includes("manti")) return "Makarna & Mantı";
+  if (l.includes("pide") || l.includes("lahmacun") || l.includes("börek") || l.includes("borek")) return "Pide & Hamur İşi";
+  if (l.includes("kahvaltı") || l.includes("kahvalti") || l.includes("menemen") || l.includes("omlet")) return "Kahvaltı";
+  if (l.includes("tatlı") || l.includes("tatli") || l.includes("waffle") || l.includes("pasta") || l.includes("kek")) return "Tatlı";
+  if (l.includes("kahve") || l.includes("çay") || l.includes("kola") || l.includes("ayran") || l.includes("şalgam") || l.includes("salgam") || l.includes("tea") || l.includes("su")) return "İçecek";
+  return "Yemek";
 }
 
 function getFlattenedMeals(mealsList) {
@@ -854,6 +886,32 @@ async function parseMealWithGeminiFast(userMessage, apiKey) {
 Kullanıcının Türkçe yemek cümlesini analiz et.
 Bugünün tarihi: ${todayDateStr} (${todayDayName}).
 
+Emoji Kuralları (ana öğüne göre en uygun emojiyi seç):
+- Burger / Hamburger / Whopper: 🍔
+- Pizza: 🍕
+- Tost / Sandviç / Kumru: 🥪
+- Dürüm / Çiğ Köfte / Tantuni / Wrap / Zater: 🌯
+- Döner / Kebap / İskender: 🥙
+- Köfte: 🧆
+- Çorba (Mercimek, Ezogelin, vs): 🍲
+- Patates kızartması: 🍟
+- Tavuk / Nugget / Şinitzel / Wings: 🍗
+- Makarna / Spagetti / Mantı / Noodle: 🍝
+- Pilav: 🍚
+- Pide / Lahmacun: 🫓
+- Börek / Poğaça / Simit / Boyoz: 🥐
+- Kahvaltı / Menemen / Yumurta / Omlet: 🍳
+- Salata / Bowl: 🥗
+- Tatlı / Waffle / Pasta / Cheesecake / Kek: 🍰
+- Dondurma: 🍦
+- İçecek (Kola, Fanta, Gazoz, Ice Tea, Şalgam): 🥤
+- Kahve: ☕
+- Çay: 🫖
+- Ayran / Süt: 🥛
+- Su / Soda: 💧
+- Bira: 🍺
+- Diğer: 🍽️
+
 Çıktı SADECE şu JSON formatında olmalıdır:
 {
   "date": "YYYY-MM-DD (dün dediyse dünün tarihi)",
@@ -863,7 +921,7 @@ Bugünün tarihi: ${todayDateStr} (${todayDayName}).
     "items": ["Çiğ Köfte", "Şalgam"],
     "location": "Yurt",
     "price": "140 TL",
-    "category": "Dürüm / Çiğ Köfte",
+    "category": "Dürüm & Çiğ Köfte",
     "emoji": "🌯",
     "note": ""
   }

@@ -86,6 +86,38 @@ function getLocationBadgeClass(loc) {
   return locationColors[loc] || "bg-purple-500/10 text-purple-400 border-purple-500/30";
 }
 
+// Akıllı Yemek/İçecek Emoji Eşleştirmesi
+function getItemEmoji(item) {
+  if (!item) return '🍽️';
+  const l = item.toLowerCase();
+  if (l.includes('burger') || l.includes('whopper') || l.includes('big mac')) return '🍔';
+  if (l.includes('pizza')) return '🍕';
+  if (l.includes('tost') || l.includes('sandviç') || l.includes('sandvic') || l.includes('kumru') || l.includes('ekmek arası')) return '🥪';
+  if (l.includes('dürüm') || l.includes('durum') || l.includes('tantuni') || l.includes('çiğ köfte') || l.includes('cig kofte') || l.includes('wrap') || l.includes('zater')) return '🌯';
+  if (l.includes('döner') || l.includes('doner') || l.includes('kebap') || l.includes('iskender')) return '🥙';
+  if (l.includes('köfte') || l.includes('kofte')) return '🧆';
+  if (l.includes('çorba') || l.includes('corba') || l.includes('mercimek') || l.includes('ezogelin') || l.includes('yayla') || l.includes('paça') || l.includes('paca')) return '🍲';
+  if (l.includes('patates') || l.includes('fries')) return '🍟';
+  if (l.includes('tavuk') || l.includes('nugget') || l.includes('şinitzel') || l.includes('sinitzel') || l.includes('kanat') || l.includes('wings') || l.includes('strips')) return '🍗';
+  if (l.includes('makarna') || l.includes('spagetti') || l.includes('spaghetti') || l.includes('noodle') || l.includes('mantı') || l.includes('manti')) return '🍝';
+  if (l.includes('pilav') || l.includes('pirinç')) return '🍚';
+  if (l.includes('lahmacun') || l.includes('pide')) return '🫓';
+  if (l.includes('börek') || l.includes('borek') || l.includes('poğaça') || l.includes('pogaca') || l.includes('simit') || l.includes('boyoz') || l.includes('açma')) return '🥐';
+  if (l.includes('kahvaltı') || l.includes('kahvalti') || l.includes('menemen') || l.includes('yumurta') || l.includes('omlet')) return '🍳';
+  if (l.includes('salata') || l.includes('bowl')) return '🥗';
+  if (l.includes('balık') || l.includes('balik') || l.includes('sushi') || l.includes('ton balık')) return '🐟';
+  if (l.includes('waffle') || l.includes('pankek') || l.includes('krep')) return '🧇';
+  if (l.includes('tatlı') || l.includes('tatli') || l.includes('pasta') || l.includes('cheesecake') || l.includes('brownie') || l.includes('kek') || l.includes('sufle')) return '🍰';
+  if (l.includes('dondurma')) return '🍦';
+  if (l.includes('ayran') || l.includes('süt')) return '🥛';
+  if (l.includes('kahve') || l.includes('latte') || l.includes('espresso') || l.includes('cappuccino') || l.includes('americano') || l.includes('filtre')) return '☕';
+  if (l.includes('çay') || l.includes('cay') || l.includes('bitki çayı')) return '🫖';
+  if (l.includes('su') || l.includes('soda') || l.includes('maden suyu')) return '💧';
+  if (l.includes('kola') || l.includes('coke') || l.includes('fanta') || l.includes('gazoz') || l.includes('şalgam') || l.includes('salgam') || l.includes('fuse') || l.includes('tea') || l.includes('ice tea') || l.includes('soğuk çay') || l.includes('meyve suyu') || l.includes('redbull') || l.includes('monster')) return '🥤';
+  if (l.includes('bira')) return '🍺';
+  return '🍽️';
+}
+
 // Format ISO date to Turkish readable format
 function formatDateTr(dateStr) {
   try {
@@ -265,10 +297,11 @@ function renderTimeline() {
     const mealsHtml = day.meals.map(meal => {
       const locBadgeClass = getLocationBadgeClass(meal.location);
       const itemsBadges = (meal.items || []).map(item => {
-        const isDrink = ['ayran', 'kola', 'su', 'fanta', 'gazoz', 'kahve', 'çay', 'fuse', 'tea', 'şeftali'].some(d => item.toLowerCase().includes(d));
+        const isDrink = ['ayran', 'kola', 'su', 'fanta', 'gazoz', 'kahve', 'çay', 'fuse', 'tea', 'şeftali', 'şalgam', 'salgam', 'soda', 'redbull', 'süt'].some(d => item.toLowerCase().includes(d));
+        const badgeEmoji = getItemEmoji(item);
         return `
           <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium ${isDrink ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/20' : 'bg-slate-800 text-slate-200 border border-slate-700/60'}">
-            ${isDrink ? '🥤' : '🍽️'} ${item}
+            ${badgeEmoji} ${item}
           </span>
         `;
       }).join('');
@@ -278,7 +311,7 @@ function renderTimeline() {
           <div class="flex items-start justify-between gap-3">
             <div class="flex items-start gap-3">
               <div class="w-11 h-11 rounded-xl bg-slate-800/80 border border-slate-700/50 flex items-center justify-center text-2xl group-hover:scale-105 transition-transform flex-shrink-0">
-                ${meal.emoji || '🍔'}
+                ${meal.emoji && meal.emoji !== '🍽️' ? meal.emoji : getItemEmoji(meal.title)}
               </div>
               <div>
                 <div class="flex items-center gap-2">
