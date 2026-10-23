@@ -4,16 +4,17 @@
     "day": "Pazartesi",
     "meals": [
       {
-        "id": "2026-10-19-1",
+        "id": "2026-10-19-1317",
         "title": "Hamburger + Ayran",
         "items": [
           "Hamburger",
           "Ayran"
         ],
-        "location": "Yurt",
-        "category": "Fast Food",
+        "location": "Neps Burger",
+        "price": "350 TL",
         "emoji": "🍔",
-        "note": "Haftanın açılış klasiği"
+        "category": "Fast Food",
+        "note": ""
       }
     ]
   },
