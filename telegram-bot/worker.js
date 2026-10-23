@@ -56,6 +56,31 @@ function parseCustomDate(input) {
     return getTurkeyTimeInfo(-2);
   }
 
+  const trDays = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+
+  // 1. ISO Formatı: YYYY-MM-DD (Örn: 2026-10-22)
+  const isoMatch = clean.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  if (isoMatch) {
+    const year = parseInt(isoMatch[1], 10);
+    const month = parseInt(isoMatch[2], 10);
+    const day = parseInt(isoMatch[3], 10);
+    const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dObj = new Date(year, month - 1, day, 12, 0, 0);
+    return { date: dateStr, day: trDays[dObj.getDay()] };
+  }
+
+  // 2. Türk Tarih Formatı: DD.MM.YYYY veya DD-MM-YYYY (Örn: 22.10.2026)
+  const trNumMatch = clean.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+  if (trNumMatch) {
+    const day = parseInt(trNumMatch[1], 10);
+    const month = parseInt(trNumMatch[2], 10);
+    const year = parseInt(trNumMatch[3], 10);
+    const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dObj = new Date(year, month - 1, day, 12, 0, 0);
+    return { date: dateStr, day: trDays[dObj.getDay()] };
+  }
+
+  // 3. Gün İsimleri (Örn: "salı", "çarşamba")
   const dayNamesTr = ["pazar", "pazartesi", "salı", "çarşamba", "perşembe", "cuma", "cumartesi"];
   const foundDayIndex = dayNamesTr.findIndex(d => clean.includes(d));
   if (foundDayIndex !== -1) {
@@ -66,6 +91,7 @@ function parseCustomDate(input) {
     return getTurkeyTimeInfo(diff);
   }
 
+  // 4. Ay İsmiyle Tarih (Örn: "22 ekim", "22 ekim 2026")
   const monthNames = ["ocak", "şubat", "mart", "nisan", "mayıs", "haziran", "temmuz", "ağustos", "eylül", "ekim", "kasım", "aralık"];
   const parts = clean.split(/[\s.-]+/);
   if (parts.length >= 2) {
@@ -77,12 +103,11 @@ function parseCustomDate(input) {
     }
     const year = parts[2] ? parseInt(parts[2], 10) : 2026;
 
-    if (!isNaN(dayNum) && monthNum !== -1) {
+    if (!isNaN(dayNum) && monthNum >= 0 && monthNum <= 11) {
       const monthStr = String(monthNum + 1).padStart(2, "0");
       const dayStr = String(dayNum).padStart(2, "0");
       const dateStr = `${year}-${monthStr}-${dayStr}`;
-      const dObj = new Date(`${dateStr}T12:00:00Z`);
-      const trDays = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+      const dObj = new Date(year, monthNum, dayNum, 12, 0, 0);
       return { date: dateStr, day: trDays[dObj.getDay()] };
     }
   }
