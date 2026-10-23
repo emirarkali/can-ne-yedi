@@ -180,8 +180,9 @@ async function handleIncomingUpdate(update, env) {
       return;
     }
 
-    // /iptal
-    if (userText.toLowerCase() === "/iptal" || userText.toLowerCase() === "iptal") {
+    // /iptal veya vazgeç
+    const cancelText = userText.toLowerCase().replace(/İ/g, "i").replace(/I/g, "ı").replace(/^\//, "").trim();
+    if (["iptal", "vazgec", "vazgeç", "cancel", "stop"].includes(cancelText)) {
       userSessions.delete(chatId);
       await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "🚫 İşlem iptal edildi.");
       return;
@@ -363,7 +364,8 @@ async function handleIncomingUpdate(update, env) {
     // B) /duzenle - ADIM 1: KULLANICI NUMARAYI SEÇTİĞİNDE
     // ============================================================
     if (session && session.action === "duzenle_select_num") {
-      const targetNum = parseInt(userText, 10);
+      const numMatch = userText.match(/\d+/);
+      const targetNum = numMatch ? parseInt(numMatch[0], 10) : NaN;
       if (isNaN(targetNum) || targetNum < 1) {
         await sendForceReplyMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⚠️ Lütfen düzenlemek istediğin öğünün sadece numarasını yaz (Örn: 1):", "Örn: 1");
         return;
@@ -437,7 +439,8 @@ async function handleIncomingUpdate(update, env) {
     // 0. /sil BEKLEME MODU
     // ============================================================
     if ((session && session.action === "sil") || replyToText.includes("[SİLME MODU]")) {
-      const targetNum = parseInt(userText, 10);
+      const numMatch = userText.match(/\d+/);
+      const targetNum = numMatch ? parseInt(numMatch[0], 10) : NaN;
       if (isNaN(targetNum) || targetNum < 1) {
         await sendForceReplyMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⚠️ Lütfen silmek istediğin öğünün sadece numarasını yaz (Örn: 1):\n\n[SİLME MODU]", "Örn: 1");
         return;
@@ -629,19 +632,43 @@ async function handleIncomingUpdate(update, env) {
     // ============================================================
     // 3. ANA KOMUTLAR (Başına / koymak zorunlu DEĞİLDİR!)
     // ============================================================
-    const cleanCmd = userText.toLowerCase().replace(/^\//, "").trim();
-    const cmdParts = cleanCmd.split(/\s+/);
-    const cmdWord = cmdParts[0];
+    const rawClean = userText
+      .replace(/İ/g, "i")
+      .replace(/I/g, "ı")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/^\//, "")
+      .trim();
+    const cmdParts = rawClean.split(/\s+/).filter(Boolean);
+    const cmdWord = (cmdParts[0] || "").replace(/[.,:;!?]+$/, "");
+
+    const DUZENLE_ALIASES = [
+      "duzenle", "duzen", "guncelle", "guncelleme", "duzelt", "duzeltme",
+      "degistir", "degistirme", "edit", "update", "modify"
+    ];
+    const SIL_ALIASES = [
+      "sil", "silme", "kaldir", "delete", "remove", "cikar"
+    ];
+    const EKLE_ALIASES = [
+      "ekle", "ekleme", "yeni", "add", "kaydet", "kayit", "yaz"
+    ];
+    const LISTE_ALIASES = [
+      "liste", "listele", "list", "ogunler", "yemekler", "son"
+    ];
+    const YARDIM_ALIASES = [
+      "start", "yardim", "help", "komutlar", "menu"
+    ];
 
     // /start ve /yardim
-    if (cmdWord === "start" || cmdWord === "yardim" || cmdWord === "yardım" || cmdWord === "help") {
+    if (YARDIM_ALIASES.includes(cmdWord)) {
       const helpMsg = 
         "🍔 *Can Ne Yedi? Yönetim Asistanı*\n\n" +
         "📌 *Komutlar (ister / ile ister doğrudan yaz):*\n" +
         "• `ekle` : Adım adım sorarak yeni öğün ekler.\n" +
-        "• `duzenle` : Listeyi açar, seçtiğin öğünün parametrelerini kopyalanabilir şablon olarak verir!\n" +
+        "• `duzenle` / `guncelle` : Listeyi açar veya `guncelle 3` yazarak doğrudan şablonu alabilirsin!\n" +
         "• `liste` : Son öğünleri numaralarıyla gösterir.\n" +
-        "• `sil` : Listeyi açar ve numarasını sorarak sildirir.\n" +
+        "• `sil` : Listeyi açar ve numarasını sorarak sildirir (veya `sil 2`).\n" +
         "• `iptal` : Devam eden işlemi iptal eder.\n\n" +
         "🤖 *Doğal Dil ile Hızlı Ekleme:*\n" +
         "• `McDonald'sda hamburger menü yedim 230 tl yanında fuse tea şeftali`";
@@ -650,7 +677,7 @@ async function handleIncomingUpdate(update, env) {
     }
 
     // /ekle
-    if (cmdWord === "ekle" || cmdWord === "yeni" || cmdWord === "add") {
+    if (EKLE_ALIASES.includes(cmdWord) && cmdParts.length <= 2) {
       userSessions.set(chatId, { action: "ekle", step: 1 });
       const { date: todayDate, day: todayDay } = getTurkeyTimeInfo();
       const step1Msg = 
@@ -663,7 +690,7 @@ async function handleIncomingUpdate(update, env) {
     }
 
     // /liste
-    if (cmdWord === "liste" || cmdWord === "list") {
+    if (LISTE_ALIASES.includes(cmdWord) && cmdParts.length <= 2) {
       const githubFile = await getGitHubFile(env.GITHUB_TOKEN);
       const mealsList = JSON.parse(githubFile.content);
       const flatMeals = getFlattenedMeals(mealsList);
@@ -682,16 +709,18 @@ async function handleIncomingUpdate(update, env) {
       });
 
       listMsg += "💡 *İşlemler:*\n";
-      listMsg += "• Düzenlemek için: `duzenle`\n";
-      listMsg += "• Silmek için: `sil`";
+      listMsg += "• Düzenlemek için: `duzenle` veya `guncelle 1`\n";
+      listMsg += "• Silmek için: `sil` veya `sil 1`";
 
       await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, listMsg, "Markdown");
       return;
     }
 
-    // /duzenle (ARGÜMANSIZ: Önce listeyi açar, numarayı seçtirir!)
-    if (cmdWord === "duzenle" || cmdWord === "düzenle" || cmdWord === "edit") {
-      const parts = cmdParts;
+    // /duzenle /guncelle /duzelt (Argümanlı veya Argümansız)
+    const isDuzenle = DUZENLE_ALIASES.includes(cmdWord) ||
+      (cmdParts.length <= 4 && cmdParts.some(p => DUZENLE_ALIASES.includes(p.replace(/[.,:;!?]+$/, ""))));
+
+    if (isDuzenle) {
       const githubFile = await getGitHubFile(env.GITHUB_TOKEN);
       const mealsList = JSON.parse(githubFile.content);
       const flatMeals = getFlattenedMeals(mealsList);
@@ -701,9 +730,21 @@ async function handleIncomingUpdate(update, env) {
         return;
       }
 
-      // Eğer kullanıcı doğrudan "duzenle 3" yazdıysa o öğünün şablonunu hemen aç
-      if (parts.length > 1 && !isNaN(parseInt(parts[1], 10))) {
-        const targetNum = parseInt(parts[1], 10);
+      // "güncelle 3", "duzenle 3", "3 güncelle", "#3 düzenle", "güncelle no 3" gibi numarayı yakala
+      let targetNum = null;
+      for (const part of cmdParts) {
+        const m = part.match(/(?:#|no:?|\b)(\d+)\b/i) || part.match(/(\d+)/);
+        if (m) {
+          const n = parseInt(m[1], 10);
+          if (!isNaN(n) && n > 0) {
+            targetNum = n;
+            break;
+          }
+        }
+      }
+
+      // Eğer kullanıcı numara belirttiyse o öğünün şablonunu doğrudan aç
+      if (targetNum !== null) {
         if (targetNum > flatMeals.length || targetNum < 1) {
           await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `⚠️ Geçersiz numara! Listede ${flatMeals.length} öğün var.`);
           return;
@@ -762,7 +803,7 @@ async function handleIncomingUpdate(update, env) {
         return;
       }
 
-      // Sadece "duzenle" yazıldıysa: Listeyi göster ve numarayı sor
+      // Sadece "duzenle" / "guncelle" yazıldıysa: Listeyi göster ve numarayı sor
       userSessions.set(chatId, { action: "duzenle_select_num" });
 
       let listMsg = "✏️ [DÜZENLEME MODU]\n\n📋 *Mevcut Öğünler:*\n\n";
@@ -787,9 +828,11 @@ async function handleIncomingUpdate(update, env) {
       return;
     }
 
-    // /sil (Argümansız /sil -> Önce listeyi açar ve numarayı sorar!)
-    if (cmdWord === "sil" || cmdWord === "delete" || cmdWord === "remove") {
-      const parts = cmdParts;
+    // /sil (Argümansız veya argümanlı /sil)
+    const isSil = SIL_ALIASES.includes(cmdWord) ||
+      (cmdParts.length <= 4 && cmdParts.some(p => SIL_ALIASES.includes(p.replace(/[.,:;!?]+$/, ""))));
+
+    if (isSil) {
       const githubFile = await getGitHubFile(env.GITHUB_TOKEN);
       let mealsList = JSON.parse(githubFile.content);
       const flatMeals = getFlattenedMeals(mealsList);
@@ -799,8 +842,19 @@ async function handleIncomingUpdate(update, env) {
         return;
       }
 
-      if (parts.length > 1 && !isNaN(parseInt(parts[1], 10))) {
-        const targetNum = parseInt(parts[1], 10);
+      let targetNum = null;
+      for (const part of cmdParts) {
+        const m = part.match(/(?:#|no:?|\b)(\d+)\b/i) || part.match(/(\d+)/);
+        if (m) {
+          const n = parseInt(m[1], 10);
+          if (!isNaN(n) && n > 0) {
+            targetNum = n;
+            break;
+          }
+        }
+      }
+
+      if (targetNum !== null) {
         if (targetNum > flatMeals.length || targetNum < 1) {
           await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `⚠️ Geçersiz numara! Toplam ${flatMeals.length} öğün var.`);
           return;
@@ -852,9 +906,9 @@ async function handleIncomingUpdate(update, env) {
         `❓ *Komut anlaşılamadı:* \`${userText}\`\n\n` +
         `💡 *Kullanabileceğin komutlar (başına / koyman zorunlu DEĞİLDİR):*\n` +
         `• *ekle* : Adım adım yeni öğün ekler\n` +
-        `• *duzenle* : Öğünleri listeler ve düzenletir\n` +
+        `• *duzenle* / *guncelle* : Öğünleri listeler ve düzenletir (Örn: \`duzenle 3\` veya \`guncelle\`)\n` +
         `• *liste* : Son öğünleri gösterir\n` +
-        `• *sil* : Öğün siler\n` +
+        `• *sil* : Öğün siler (Örn: \`sil 2\` veya \`sil\`)\n` +
         `• *iptal* : İşlemi iptal eder\n\n` +
         `_(Doğal dille yemek eklemek için ne yediğini ve fiyatını tam cümle olarak yazmalısın, örn: "Yurtta hamburger yedim 220 TL")_`;
       await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, unknownMsg, "Markdown");
