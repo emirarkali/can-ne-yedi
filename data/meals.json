@@ -93,16 +93,16 @@
     "day": "Cuma",
     "meals": [
       {
-        "id": "2026-10-23-9708",
-        "title": "Tost + Ayran Kofteci Yusuf",
+        "id": "2026-10-23-0725",
+        "title": "Tost + Ayran",
         "items": [
           "Tost",
-          "Ayran Kofteci Yusuf"
+          "Ayran"
         ],
-        "location": "Köfteci Yusuf (Buca)",
-        "category": "Tost & Sandviç",
-        "emoji": "🥪",
+        "location": "Köfteci Yusuf (buca)",
         "price": "280 TL",
+        "emoji": "🥪",
+        "category": "Tost & Sandviç",
         "note": ""
       }
     ]
