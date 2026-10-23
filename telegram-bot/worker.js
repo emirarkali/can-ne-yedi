@@ -135,6 +135,16 @@ export default {
         }
       }
 
+      // Inline Query Desteği
+      if (update.inline_query) {
+        if (ctx && ctx.waitUntil) {
+          ctx.waitUntil(handleInlineQuery(update.inline_query, env));
+        } else {
+          await handleInlineQuery(update.inline_query, env);
+        }
+        return new Response("OK", { status: 200 });
+      }
+
       if (ctx && ctx.waitUntil) {
         ctx.waitUntil(handleIncomingUpdate(update, env));
       } else {
@@ -153,7 +163,7 @@ async function handleIncomingUpdate(update, env) {
   if (!update.message || !update.message.text) return;
 
   const chatId = update.message.chat.id;
-  const userText = update.message.text.trim();
+  let userText = update.message.text.trim().replace(/^@[\w_]+bot\s*/i, "").trim();
   const replyToText = update.message.reply_to_message ? update.message.reply_to_message.text : "";
 
   try {
@@ -191,7 +201,7 @@ async function handleIncomingUpdate(update, env) {
       userText.toLowerCase().startsWith("no:");
 
     if (isTemplateSubmission) {
-      const lines = userText.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+      const lines = userText.split(/[\n|]+/).map(l => l.trim()).filter(l => l.length > 0);
       
       let parsedNum = null;
       let food = "";
@@ -328,7 +338,16 @@ async function handleIncomingUpdate(update, env) {
       mealsList.sort((a, b) => new Date(a.date) - new Date(b.date));
 
       await updateGitHubFile(env.GITHUB_TOKEN, githubFile.sha, JSON.stringify(mealsList, null, 2), `fix: düzenlendi #${mealNum} (${fullTitle} - ${price})`);
-      const okText = `✅ *#${mealNum} Numaralı Öğün Güncellendi!*\n\n📅 ${dateInfo.day} (${dateInfo.date})\n${guessEmoji(primaryItem)} *${fullTitle}*\n📍 *Konum:* ${loc}\n💰 *Fiyat:* ${price}\n\nSite güncellendi! 🌐`;
+      const foodLine = food ? `${guessEmoji(food)} *Yemek:* ${food}` : "";
+      const drinkLine = drink ? `🥤 *İçecek:* ${drink}` : "🥤 *İçecek:* (İçilmedi)";
+      const okText = 
+        `✅ *#${mealNum} Numaralı Öğün Güncellendi!*\n\n` +
+        `📅 *Tarih:* ${dateInfo.day} (${dateInfo.date})\n` +
+        `${foodLine ? foodLine + "\n" : ""}` +
+        `${drinkLine}\n` +
+        `📍 *Konum:* ${loc}\n` +
+        `💰 *Fiyat:* ${price}\n\n` +
+        `Site güncellendi! 🌐`;
       await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, statusMsgId, okText);
       return;
     }
@@ -381,13 +400,27 @@ async function handleIncomingUpdate(update, env) {
         `Fiyat: ${existingPrice}\n` +
         `Tarih: ${item.date}`;
 
+      const inlineQueryText = `No: ${targetNum} | Yemek: ${existingFood} | İçecek: ${existingDrink} | Konum: ${item.meal.location} | Fiyat: ${existingPrice} | Tarih: ${item.date}`;
+
       const promptMsg = 
         `✏️ *#${targetNum} Numaralı Öğün Seçildi!*\n\n` +
-        `Aşağıdaki gri kutucuğa **tek dokunarak kopyala**, mesaj kutuna yapıştır, istediğin satırı değiştirip gönder:\n\n` +
+        `Aşağıdaki gri kutucuğa **tek dokunarak kopyalayabilir** veya alttaki **"✏️ Mesaj Kutusuna Doldur"** butonuna basabilirsin:\n\n` +
         `\`\`\`\n${templateText}\n\`\`\`\n\n` +
         `💡 İçecek yoksa "içmedim" yazabilirsin. İptal için: /iptal`;
 
-      await sendForceReplyMessage(env.TELEGRAM_BOT_TOKEN, chatId, promptMsg, "Şablonu yapıştırıp düzenleyin...");
+      await sendInlineButtonMessage(
+        env.TELEGRAM_BOT_TOKEN,
+        chatId,
+        promptMsg,
+        [
+          [
+            {
+              text: "✏️ Mesaj Kutusuna Doldur",
+              switch_inline_query_current_chat: inlineQueryText
+            }
+          ]
+        ]
+      );
       return;
     }
 
@@ -545,7 +578,16 @@ async function handleIncomingUpdate(update, env) {
           emoji: guessEmoji(primaryItem)
         }, dateInfo.date, dateInfo.day);
 
-        const okText = `✅ *Siteye Eklendi!*\n\n📅 ${dateInfo.day} (${dateInfo.date})\n${guessEmoji(primaryItem)} *${fullTitle}*\n📍 *Konum:* ${loc}\n💰 *Fiyat:* ${price}\n\n🌐 https://${REPO_OWNER}.github.io/${REPO_NAME}/`;
+        const foodLine = food ? `${guessEmoji(food)} *Yemek:* ${food}` : "";
+        const drinkLine = drink ? `🥤 *İçecek:* ${drink}` : "🥤 *İçecek:* (İçilmedi)";
+        const okText = 
+          `✅ *Siteye Eklendi!*\n\n` +
+          `📅 *Tarih:* ${dateInfo.day} (${dateInfo.date})\n` +
+          `${foodLine ? foodLine + "\n" : ""}` +
+          `${drinkLine}\n` +
+          `📍 *Konum:* ${loc}\n` +
+          `💰 *Fiyat:* ${price}\n\n` +
+          `🌐 https://${REPO_OWNER}.github.io/${REPO_NAME}/`;
         await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, statusMsgId, okText);
         return;
       }
@@ -658,13 +700,27 @@ async function handleIncomingUpdate(update, env) {
           `Fiyat: ${existingPrice}\n` +
           `Tarih: ${item.date}`;
 
+        const inlineQueryText = `No: ${targetNum} | Yemek: ${existingFood} | İçecek: ${existingDrink} | Konum: ${item.meal.location} | Fiyat: ${existingPrice} | Tarih: ${item.date}`;
+
         const promptMsg = 
           `✏️ *#${targetNum} Numaralı Öğün Seçildi!*\n\n` +
-          `Aşağıdaki gri kutucuğa **tek dokunarak kopyala**, mesaj kutuna yapıştır, istediğin satırı değiştirip gönder:\n\n` +
+          `Aşağıdaki gri kutucuğa **tek dokunarak kopyalayabilir** veya alttaki **"✏️ Mesaj Kutusuna Doldur"** butonuna basabilirsin:\n\n` +
           `\`\`\`\n${templateText}\n\`\`\`\n\n` +
           `💡 İçecek yoksa "içmedim" yazabilirsin. İptal için: /iptal`;
 
-        await sendForceReplyMessage(env.TELEGRAM_BOT_TOKEN, chatId, promptMsg, "Şablonu yapıştırıp düzenleyin...");
+        await sendInlineButtonMessage(
+          env.TELEGRAM_BOT_TOKEN,
+          chatId,
+          promptMsg,
+          [
+            [
+              {
+                text: "✏️ Mesaj Kutusuna Doldur",
+                switch_inline_query_current_chat: inlineQueryText
+              }
+            ]
+          ]
+        );
         return;
       }
 
@@ -675,7 +731,17 @@ async function handleIncomingUpdate(update, env) {
       flatMeals.slice(0, 8).forEach((item, index) => {
         const num = index + 1;
         const priceStr = item.meal.price ? ` - 💰 ${item.meal.price}` : "";
-        listMsg += `*#${num}* [${item.day}] ${item.meal.emoji || '🍽️'} *${item.meal.title}* (${item.meal.location}${priceStr})\n`;
+        let foodPart = item.meal.title;
+        let drinkPart = "";
+        if (item.meal.items && item.meal.items.length >= 2) {
+          foodPart = item.meal.items[0];
+          drinkPart = ` + 🥤 ${item.meal.items.slice(1).join(" + ")}`;
+        } else if (item.meal.title.includes("+")) {
+          const s = item.meal.title.split("+");
+          foodPart = s[0].trim();
+          drinkPart = ` + 🥤 ${s.slice(1).join("+").trim()}`;
+        }
+        listMsg += `*#${num}* [${item.day}] ${guessEmoji(foodPart)} *${foodPart}*${drinkPart} (${item.meal.location}${priceStr})\n`;
       });
 
       listMsg += "\n👉 *Hangi numaralı öğünü düzenlemek istiyorsun?*\n_(Sadece numarasını yaz, örn: 1 veya 3)_\n💡 Vazgeçmek için: /iptal";
@@ -722,7 +788,17 @@ async function handleIncomingUpdate(update, env) {
       flatMeals.slice(0, 8).forEach((item, index) => {
         const num = index + 1;
         const priceStr = item.meal.price ? ` - 💰 ${item.meal.price}` : "";
-        listMsg += `*#${num}* [${item.day}] ${item.meal.emoji || '🍽️'} *${item.meal.title}* (${item.meal.location}${priceStr})\n`;
+        let foodPart = item.meal.title;
+        let drinkPart = "";
+        if (item.meal.items && item.meal.items.length >= 2) {
+          foodPart = item.meal.items[0];
+          drinkPart = ` + 🥤 ${item.meal.items.slice(1).join(" + ")}`;
+        } else if (item.meal.title.includes("+")) {
+          const s = item.meal.title.split("+");
+          foodPart = s[0].trim();
+          drinkPart = ` + 🥤 ${s.slice(1).join("+").trim()}`;
+        }
+        listMsg += `*#${num}* [${item.day}] ${guessEmoji(foodPart)} *${foodPart}*${drinkPart} (${item.meal.location}${priceStr})\n`;
       });
 
       listMsg += "\n👉 *Hangi numaralı öğünü silmek istiyorsun?*\n_(Sadece numarasını yaz, örn: 1 veya 2)_\n💡 Vazgeçmek için /iptal yazabilirsin.";
@@ -792,10 +868,16 @@ async function handleIncomingUpdate(update, env) {
 
     await saveNewMealToGitHub(env.GITHUB_TOKEN, parsedData.meal, parsedData.date, parsedData.day);
 
+    const mealItems = parsedData.meal.items || [parsedData.meal.title];
+    const aiFood = mealItems[0] || parsedData.meal.title;
+    const aiDrink = mealItems.length > 1 ? mealItems.slice(1).join(" + ") : "";
+    const foodLine = `${guessEmoji(aiFood)} *Yemek:* ${aiFood}`;
+    const drinkLine = aiDrink ? `🥤 *İçecek:* ${aiDrink}` : "🥤 *İçecek:* (İçilmedi)";
     const finalSuccessMsg = 
       `✅ *Harika, siteye eklendi!*\n\n` +
       `📅 *Tarih:* ${parsedData.day} (${parsedData.date})\n` +
-      `${parsedData.meal.emoji} *Öğün:* ${parsedData.meal.title}\n` +
+      `${foodLine}\n` +
+      `${drinkLine}\n` +
       `📍 *Konum:* ${parsedData.meal.location}\n` +
       `💰 *Fiyat:* ${parsedData.meal.price}\n\n` +
       `🌐 https://${REPO_OWNER}.github.io/${REPO_NAME}/`;
@@ -1118,5 +1200,54 @@ async function sendForceReplyMessage(botToken, chatId, text, placeholder = "") {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
+  });
+}
+
+async function sendInlineButtonMessage(botToken, chatId, text, inlineKeyboard) {
+  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+  const body = {
+    chat_id: chatId,
+    text,
+    parse_mode: "Markdown",
+    reply_markup: {
+      inline_keyboard: inlineKeyboard
+    }
+  };
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  if (res.ok) {
+    const data = await res.json();
+    return data.result;
+  }
+  return null;
+}
+
+async function handleInlineQuery(inlineQuery, env) {
+  const query = (inlineQuery.query || "").trim();
+  const inlineQueryId = inlineQuery.id;
+
+  const results = query ? [
+    {
+      type: "article",
+      id: "submit_meal",
+      title: "✅ Düzenlemeyi Gönder",
+      description: query,
+      input_message_content: {
+        message_text: query
+      }
+    }
+  ] : [];
+
+  await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/answerInlineQuery`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      inline_query_id: inlineQueryId,
+      results,
+      cache_time: 1
+    })
   });
 }
