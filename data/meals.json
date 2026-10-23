@@ -58,18 +58,6 @@
     "day": "Perşembe",
     "meals": [
       {
-        "id": "2026-10-22-1",
-        "title": "Tavuk Dürüm (Zater) + Kola",
-        "items": [
-          "Tavuk Dürüm (Zater)",
-          "Kola"
-        ],
-        "location": "Yurt",
-        "category": "Dürüm",
-        "emoji": "🌯",
-        "note": "Günün ilk lezzeti"
-      },
-      {
         "id": "2026-10-22-6034",
         "title": "Hamburger + Özerhisar Ayran",
         "items": [
@@ -99,6 +87,23 @@
         "category": "Tost & Sandviç",
         "emoji": "🥪",
         "price": "280 TL",
+        "note": ""
+      }
+    ]
+  },
+  {
+    "date": "22-10-2026",
+    "meals": [
+      {
+        "id": "22-10-2026-6844",
+        "title": "Tavuk Dürüm (zater)",
+        "items": [
+          "Tavuk Dürüm (zater)"
+        ],
+        "location": "Yurt",
+        "price": "240 TL",
+        "emoji": "🌯",
+        "category": "Dürüm & Çiğ Köfte",
         "note": ""
       }
     ]
