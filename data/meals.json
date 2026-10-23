@@ -22,16 +22,16 @@
     "day": "Salı",
     "meals": [
       {
-        "id": "2026-10-20-1",
-        "title": "Hamburger + Fuse Tea Şeftali",
+        "id": "2026-10-20-5788",
+        "title": "Hamburger",
         "items": [
-          "Hamburger",
-          "Fuse Tea Şeftali"
+          "Hamburger"
         ],
         "location": "McDonald's",
-        "category": "Fast Food",
+        "price": "350 TL",
         "emoji": "🍔",
-        "note": "McDonald's menüsü"
+        "category": "Fast Food",
+        "note": ""
       }
     ]
   },
