@@ -82,5 +82,24 @@
         "price": "400 TL"
       }
     ]
+  },
+  {
+    "date": "2026-10-23",
+    "day": "Cuma",
+    "meals": [
+      {
+        "id": "2026-10-23-9708",
+        "title": "Tost + Ayran Kofteci Yusuf",
+        "items": [
+          "Tost",
+          "Ayran Kofteci Yusuf"
+        ],
+        "location": "Kofteci Yusuf Buca",
+        "category": "Fast Food",
+        "emoji": "🍽️",
+        "price": "280 TL",
+        "note": ""
+      }
+    ]
   }
 ]
