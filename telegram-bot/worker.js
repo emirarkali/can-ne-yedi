@@ -209,6 +209,7 @@ async function handleIncomingUpdate(update, env) {
       let loc = "Yurt";
       let price = "";
       let customDate = "";
+      let note = "";
 
       // Satırları tek tek regex ile analiz et (Türkçe İ / i karakter uyumlu)
       for (const line of lines) {
@@ -218,6 +219,7 @@ async function handleIncomingUpdate(update, env) {
         const locMatch = line.match(/^(?:konum|mekan)\s*:\s*(.*)/i);
         const priceMatch = line.match(/^fiyat\s*:\s*(.*)/i);
         const dateMatch = line.match(/^tarih\s*:\s*(.*)/i);
+        const noteMatch = line.match(/^not\s*:\s*(.*)/i);
 
         if (noMatch) {
           parsedNum = parseInt(noMatch[1], 10);
@@ -231,6 +233,9 @@ async function handleIncomingUpdate(update, env) {
           price = priceMatch[1].trim();
         } else if (dateMatch) {
           customDate = dateMatch[1].trim();
+        } else if (noteMatch) {
+          const n = noteMatch[1].trim();
+          note = isNoNote(n) ? "" : n;
         }
       }
 
@@ -321,7 +326,7 @@ async function handleIncomingUpdate(update, env) {
         price: price,
         emoji: guessEmoji(primaryItem),
         category: guessCategory(primaryItem),
-        note: ""
+        note: note
       };
 
       let targetDayEntry = mealsList.find(d => d.date === dateInfo.date);
@@ -340,13 +345,15 @@ async function handleIncomingUpdate(update, env) {
       await updateGitHubFile(env.GITHUB_TOKEN, githubFile.sha, JSON.stringify(mealsList, null, 2), `fix: düzenlendi #${mealNum} (${fullTitle} - ${price})`);
       const foodLine = food ? `${guessEmoji(food)} *Yemek:* ${food}` : "";
       const drinkLine = drink ? `🥤 *İçecek:* ${drink}` : "🥤 *İçecek:* (İçilmedi)";
+      const noteLine = note ? `💬 *Not:* ${note}\n` : "";
       const okText = 
         `✅ *#${mealNum} Numaralı Öğün Güncellendi!*\n\n` +
         `📅 *Tarih:* ${dateInfo.day} (${dateInfo.date})\n` +
         `${foodLine ? foodLine + "\n" : ""}` +
         `${drinkLine}\n` +
         `📍 *Konum:* ${loc}\n` +
-        `💰 *Fiyat:* ${price}\n\n` +
+        `💰 *Fiyat:* ${price}\n` +
+        `${noteLine}\n` +
         `Site güncellendi! 🌐`;
       await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, statusMsgId, okText);
       return;
@@ -392,13 +399,15 @@ async function handleIncomingUpdate(update, env) {
 
       // Tek dokunuşla kopyalanabilir hazır şablon
       const existingPrice = item.meal.price || "";
+      const existingNote = item.meal.note || "";
       const templateText = 
         `No: ${targetNum}\n` +
         `Yemek: ${existingFood}\n` +
         `İçecek: ${existingDrink}\n` +
         `Konum: ${item.meal.location}\n` +
         `Fiyat: ${existingPrice}\n` +
-        `Tarih: ${item.date}`;
+        `Tarih: ${item.date}\n` +
+        `Not: ${existingNote}`;
 
       const inlineQueryText = "\n" + templateText;
 
@@ -406,7 +415,7 @@ async function handleIncomingUpdate(update, env) {
         `✏️ *#${targetNum} Numaralı Öğün Seçildi!*\n\n` +
         `Aşağıdaki gri kutucuğa **tek dokunarak kopyalayabilir** veya alttaki **"✏️ Mesaj Kutusuna Doldur"** butonuna basabilirsin:\n\n` +
         `\`\`\`\n${templateText}\n\`\`\`\n\n` +
-        `💡 İçecek yoksa "içmedim" yazabilirsin. İptal için: /iptal`;
+        `💡 İçecek veya not yoksa boş bırakabilir veya "yok" yazabilirsin. İptal için: iptal`;
 
       await sendInlineButtonMessage(
         env.TELEGRAM_BOT_TOKEN,
@@ -472,6 +481,7 @@ async function handleIncomingUpdate(update, env) {
       if (replyToText.includes("[EKLE-ADIM 3]")) step = 3;
       if (replyToText.includes("[EKLE-ADIM 4]")) step = 4;
       if (replyToText.includes("[EKLE-ADIM 5]")) step = 5;
+      if (replyToText.includes("[EKLE-ADIM 6]")) step = 6;
 
       if (step === 1) {
         const dateInfo = parseCustomDate(userText);
@@ -553,6 +563,26 @@ async function handleIncomingUpdate(update, env) {
           return;
         }
 
+        userSessions.set(chatId, { action: "ekle", step: 6, dateInfo, food, drink, loc, price });
+
+        const q6 = 
+          `➕ [EKLE-ADIM 6]\n` +
+          `[DATE:${dateInfo.date}|${dateInfo.day}] [FOOD:${food}] [DRINK:${drink}] [LOC:${loc}] [PRICE:${price}]\n\n` +
+          `6️⃣ *Öğün için bir not / açıklama eklemek ister misin? (Opsiyonel)*\n` +
+          `_(Örn: 'Patatesleri sıcaktı', 'Arkadaşlarla yedik')_\n\n` +
+          `💡 Not eklemek istemiyorsan *yok* veya *geç* yazıp geçebilirsin.`;
+        await sendForceReplyMessage(env.TELEGRAM_BOT_TOKEN, chatId, q6, "Örn: yok veya notun...");
+        return;
+      }
+
+      if (step === 6) {
+        const dateInfo = (session && session.dateInfo) || parseCustomDate(extractTag(replyToText, "DATE"));
+        const food = (session && session.food !== undefined) ? session.food : extractTag(replyToText, "FOOD");
+        const drink = (session && session.drink !== undefined) ? session.drink : extractTag(replyToText, "DRINK");
+        const loc = (session && session.loc) || extractTag(replyToText, "LOC");
+        const price = (session && session.price) || extractTag(replyToText, "PRICE");
+        const note = isNoNote(userText) ? "" : userText.trim();
+
         userSessions.delete(chatId);
 
         const statusMsg = await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⏳ Siteye kaydediliyor...");
@@ -575,18 +605,21 @@ async function handleIncomingUpdate(update, env) {
           location: loc,
           price: price,
           category: guessCategory(primaryItem),
-          emoji: guessEmoji(primaryItem)
+          emoji: guessEmoji(primaryItem),
+          note: note
         }, dateInfo.date, dateInfo.day);
 
         const foodLine = food ? `${guessEmoji(food)} *Yemek:* ${food}` : "";
         const drinkLine = drink ? `🥤 *İçecek:* ${drink}` : "🥤 *İçecek:* (İçilmedi)";
+        const noteLine = note ? `💬 *Not:* ${note}\n` : "";
         const okText = 
           `✅ *Siteye Eklendi!*\n\n` +
           `📅 *Tarih:* ${dateInfo.day} (${dateInfo.date})\n` +
           `${foodLine ? foodLine + "\n" : ""}` +
           `${drinkLine}\n` +
           `📍 *Konum:* ${loc}\n` +
-          `💰 *Fiyat:* ${price}\n\n` +
+          `💰 *Fiyat:* ${price}\n` +
+          `${noteLine}\n` +
           `🌐 https://${REPO_OWNER}.github.io/${REPO_NAME}/`;
         await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, statusMsgId, okText);
         return;
@@ -695,13 +728,15 @@ async function handleIncomingUpdate(update, env) {
         });
 
         const existingPrice = item.meal.price || "";
+        const existingNote = item.meal.note || "";
         const templateText = 
           `No: ${targetNum}\n` +
           `Yemek: ${existingFood}\n` +
           `İçecek: ${existingDrink}\n` +
           `Konum: ${item.meal.location}\n` +
           `Fiyat: ${existingPrice}\n` +
-          `Tarih: ${item.date}`;
+          `Tarih: ${item.date}\n` +
+          `Not: ${existingNote}`;
 
         const inlineQueryText = "\n" + templateText;
 
@@ -709,7 +744,7 @@ async function handleIncomingUpdate(update, env) {
           `✏️ *#${targetNum} Numaralı Öğün Seçildi!*\n\n` +
           `Aşağıdaki gri kutucuğa **tek dokunarak kopyalayabilir** veya alttaki **"✏️ Mesaj Kutusuna Doldur"** butonuna basabilirsin:\n\n` +
           `\`\`\`\n${templateText}\n\`\`\`\n\n` +
-          `💡 İçecek yoksa "içmedim" yazabilirsin. İptal için: /iptal`;
+          `💡 İçecek veya not yoksa boş bırakabilir veya "yok" yazabilirsin. İptal için: iptal`;
 
         await sendInlineButtonMessage(
           env.TELEGRAM_BOT_TOKEN,
@@ -882,13 +917,15 @@ async function handleIncomingUpdate(update, env) {
     const aiDrink = mealItems.length > 1 ? mealItems.slice(1).join(" + ") : "";
     const foodLine = `${guessEmoji(aiFood)} *Yemek:* ${aiFood}`;
     const drinkLine = aiDrink ? `🥤 *İçecek:* ${aiDrink}` : "🥤 *İçecek:* (İçilmedi)";
+    const noteLine = parsedData.meal.note ? `💬 *Not:* ${parsedData.meal.note}\n` : "";
     const finalSuccessMsg = 
       `✅ *Harika, siteye eklendi!*\n\n` +
       `📅 *Tarih:* ${parsedData.day} (${parsedData.date})\n` +
       `${foodLine}\n` +
       `${drinkLine}\n` +
       `📍 *Konum:* ${parsedData.meal.location}\n` +
-      `💰 *Fiyat:* ${parsedData.meal.price}\n\n` +
+      `💰 *Fiyat:* ${parsedData.meal.price}\n` +
+      `${noteLine}\n` +
       `🌐 https://${REPO_OWNER}.github.io/${REPO_NAME}/`;
 
     await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, liveMsgId, finalSuccessMsg);
@@ -925,6 +962,17 @@ function isNoFood(text) {
     t === "yemedim" || t === "yemedım" || t === "yemedm" || t === "yok" ||
     t === "yoktu" || t === "hayır" || t === "hayir" || t === "hiçbir şey" ||
     t === "hicbir sey" || t === "-"
+  );
+}
+
+function isNoNote(text) {
+  if (!text) return true;
+  const t = text.trim().toLocaleLowerCase("tr-TR");
+  return (
+    t === "yok" || t === "yoktu" || t === "geç" || t === "gec" ||
+    t === "hayır" || t === "hayir" || t === "boş" || t === "bos" ||
+    t === "-" || t === "istemiyorum" || t === "yoktur" || t === "none" ||
+    t === "null" || t === "undefined"
   );
 }
 
