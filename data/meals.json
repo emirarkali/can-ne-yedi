@@ -68,6 +68,19 @@
         "category": "Dürüm",
         "emoji": "🌯",
         "note": "Günün ilk lezzeti"
+      },
+      {
+        "id": "2026-10-22-6034",
+        "title": "Hamburger + Özerhisar Ayran",
+        "items": [
+          "Hamburger",
+          "Özerhisar Ayran"
+        ],
+        "location": "Jungle Burger",
+        "category": "Fast Food",
+        "emoji": "🍔",
+        "price": "440 TL",
+        "note": ""
       }
     ]
   },
