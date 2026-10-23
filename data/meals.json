@@ -23,9 +23,10 @@
     "meals": [
       {
         "id": "2026-10-20-5788",
-        "title": "Hamburger",
+        "title": "Hamburger + Fuse Tea Şeftali",
         "items": [
-          "Hamburger"
+          "Hamburger",
+          "Fuse Tea Şeftali"
         ],
         "location": "McDonald's",
         "price": "350 TL",
@@ -41,9 +42,10 @@
     "meals": [
       {
         "id": "2026-10-21-3738",
-        "title": "Hamburger",
+        "title": "Hamburger + Fuse Tea Şeftali",
         "items": [
-          "Hamburger"
+          "Hamburger",
+          "Fuse Tea Şeftali"
         ],
         "location": "McDonald's",
         "price": "300 TL",

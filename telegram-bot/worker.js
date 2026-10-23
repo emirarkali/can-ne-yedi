@@ -200,22 +200,27 @@ async function handleIncomingUpdate(update, env) {
       let price = "";
       let customDate = "";
 
-      // Satırları tek tek analiz et
+      // Satırları tek tek regex ile analiz et (Türkçe İ / i karakter uyumlu)
       for (const line of lines) {
-        const lower = line.toLowerCase();
-        if (lower.startsWith("no:") || lower.startsWith("#")) {
-          const m = line.match(/\d+/);
-          if (m) parsedNum = parseInt(m[0], 10);
-        } else if (lower.startsWith("yemek:")) {
-          food = line.slice(6).trim();
-        } else if (lower.startsWith("içecek:") || lower.startsWith("icecek:")) {
-          drink = line.slice(7).trim();
-        } else if (lower.startsWith("konum:") || lower.startsWith("mekan:")) {
-          loc = line.slice(6).trim();
-        } else if (lower.startsWith("fiyat:")) {
-          price = line.slice(6).trim();
-        } else if (lower.startsWith("tarih:")) {
-          customDate = line.slice(6).trim();
+        const noMatch = line.match(/^(?:no|#)\s*:?\s*(\d+)/i);
+        const foodMatch = line.match(/^yemek\s*:\s*(.*)/i);
+        const drinkMatch = line.match(/^[iI\u0130\u0131\u0069\u0049][\u0307]?[çc]ecek\s*:\s*(.*)/i);
+        const locMatch = line.match(/^(?:konum|mekan)\s*:\s*(.*)/i);
+        const priceMatch = line.match(/^fiyat\s*:\s*(.*)/i);
+        const dateMatch = line.match(/^tarih\s*:\s*(.*)/i);
+
+        if (noMatch) {
+          parsedNum = parseInt(noMatch[1], 10);
+        } else if (foodMatch) {
+          food = foodMatch[1].trim();
+        } else if (drinkMatch) {
+          drink = drinkMatch[1].trim();
+        } else if (locMatch) {
+          loc = locMatch[1].trim();
+        } else if (priceMatch) {
+          price = priceMatch[1].trim();
+        } else if (dateMatch) {
+          customDate = dateMatch[1].trim();
         }
       }
 
@@ -350,7 +355,10 @@ async function handleIncomingUpdate(update, env) {
       const item = flatMeals[targetNum - 1];
       let existingFood = item.meal.title;
       let existingDrink = "içmedim";
-      if (item.meal.title.includes("+")) {
+      if (item.meal.items && item.meal.items.length >= 2) {
+        existingFood = item.meal.items[0].trim();
+        existingDrink = item.meal.items.slice(1).join(" + ").trim();
+      } else if (item.meal.title.includes("+")) {
         const split = item.meal.title.split("+");
         existingFood = split[0].trim();
         existingDrink = split.slice(1).join("+").trim();
@@ -626,7 +634,10 @@ async function handleIncomingUpdate(update, env) {
         const item = flatMeals[targetNum - 1];
         let existingFood = item.meal.title;
         let existingDrink = "içmedim";
-        if (item.meal.title.includes("+")) {
+        if (item.meal.items && item.meal.items.length >= 2) {
+          existingFood = item.meal.items[0].trim();
+          existingDrink = item.meal.items.slice(1).join(" + ").trim();
+        } else if (item.meal.title.includes("+")) {
           const split = item.meal.title.split("+");
           existingFood = split[0].trim();
           existingDrink = split.slice(1).join("+").trim();
@@ -808,11 +819,11 @@ function isSame(text) {
 
 function isNoDrink(text) {
   if (!text) return true;
-  const t = text.trim().toLowerCase();
+  const t = text.trim().toLocaleLowerCase("tr-TR");
   return (
     t === "içmedim" || t === "icmedim" || t === "içmedım" || t === "icmedım" ||
     t === "içmedm" || t === "yok" || t === "yoktu" || t === "hayır" || t === "hayir" ||
-    t === "su" || t === "hiçbir şey" || t === "hicbir sey" || t === "-"
+    t === "su" || t === "hiçbir şey" || t === "hicbir sey" || t === "-" || t === "null" || t === "undefined"
   );
 }
 
