@@ -68,18 +68,6 @@
         "category": "Dürüm",
         "emoji": "🌯",
         "note": "Günün ilk lezzeti"
-      },
-      {
-        "id": "2026-10-22-2",
-        "title": "Haamburger",
-        "items": [
-          "Haamburger"
-        ],
-        "location": "Jungle Burger",
-        "category": "Fast Food",
-        "emoji": "🍔",
-        "note": "Jungle Burger kapanış",
-        "price": "400 TL"
       }
     ]
   },
