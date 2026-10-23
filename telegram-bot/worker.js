@@ -157,36 +157,51 @@ async function handleIncomingUpdate(update, env) {
     // ============================================================
     // A) /duzenle - ADIM 2: KULLANICI DÜZENLENMİŞ METNİ GÖNDERDİĞİNDE
     // ============================================================
-    if ((session && session.action === "duzenle_submit") || replyToText.includes("[DÜZENLEME ŞABLONU]")) {
-      const mealNum = (session && session.mealNum) || parseInt(extractTag(replyToText, "NO"), 10);
-      const originalDate = (session && session.originalDate) || extractTag(replyToText, "ORIG_DATE");
+    const isTemplateSubmission = 
+      (session && session.action === "duzenle_submit") ||
+      replyToText.toLowerCase().includes("düzenleme") ||
+      replyToText.toLowerCase().includes("duzenleme") ||
+      userText.toLowerCase().includes("yemek:") ||
+      (userText.toLowerCase().includes("fiyat:") && userText.toLowerCase().includes("tarih:")) ||
+      userText.toLowerCase().startsWith("no:");
 
+    if (isTemplateSubmission) {
       const lines = userText.split("\n").map(l => l.trim()).filter(l => l.length > 0);
       
+      let parsedNum = null;
       let food = "";
       let drink = "";
       let loc = "Yurt";
       let price = "";
-      let customDate = originalDate;
+      let customDate = "";
 
-      // Kullanıcı etiketli mi yazdı ("Yemek: ...") yoksa düz 4 satır mı?
+      // Satırları tek tek analiz et
       for (const line of lines) {
         const lower = line.toLowerCase();
-        if (lower.startsWith("yemek:")) food = line.slice(6).trim();
-        else if (lower.startsWith("içecek:") || lower.startsWith("icecek:")) drink = line.slice(7).trim();
-        else if (lower.startsWith("konum:") || lower.startsWith("mekan:")) loc = line.slice(6).trim();
-        else if (lower.startsWith("fiyat:")) price = line.slice(6).trim();
-        else if (lower.startsWith("tarih:")) customDate = line.slice(6).trim();
+        if (lower.startsWith("no:") || lower.startsWith("#")) {
+          const m = line.match(/\d+/);
+          if (m) parsedNum = parseInt(m[0], 10);
+        } else if (lower.startsWith("yemek:")) {
+          food = line.slice(6).trim();
+        } else if (lower.startsWith("içecek:") || lower.startsWith("icecek:")) {
+          drink = line.slice(7).trim();
+        } else if (lower.startsWith("konum:") || lower.startsWith("mekan:")) {
+          loc = line.slice(6).trim();
+        } else if (lower.startsWith("fiyat:")) {
+          price = line.slice(6).trim();
+        } else if (lower.startsWith("tarih:")) {
+          customDate = line.slice(6).trim();
+        }
       }
 
-      // Eğer etiketli yazılmadıysa sırayla satırları al
-      if (!food && lines.length >= 1) {
-        food = lines[0];
-        if (lines.length >= 2) drink = lines[1];
-        if (lines.length >= 3) loc = lines[2];
-        if (lines.length >= 4) price = lines[3];
-        if (lines.length >= 5) customDate = lines[4];
-      }
+      // Numarayı belirle
+      const mealNum = parsedNum || 
+        (session && session.mealNum) || 
+        parseInt(extractTag(replyToText, "NO"), 10);
+
+      const originalDate = customDate || 
+        (session && session.originalDate) || 
+        extractTag(replyToText, "ORIG_DATE");
 
       // Temizlikler
       if (isNoFood(food)) food = "";
@@ -198,17 +213,29 @@ async function handleIncomingUpdate(update, env) {
       loc = normalizeLocation(loc);
       price = formatPrice(price);
 
+      if (!mealNum || isNaN(mealNum)) {
+        await sendTelegramMessage(
+          env.TELEGRAM_BOT_TOKEN, 
+          chatId, 
+          "⚠️ Düzenlenecek öğün numarası belirlenemedi.\n\n" +
+          "Lütfen şablonun en üst satırına numarasını ekleyip tekrar gönderin, örn:\n" +
+          "`No: 3`\n`Yemek: ...`\n\n" +
+          "Veya baştan seçmek için: /duzenle"
+        );
+        return;
+      }
+
       if (!food && !drink) {
         await sendForceReplyMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⚠️ Yemek veya içecekten en az birini yazmalısın. Lütfen tekrar düzenleyip gönderin:\n\n[DÜZENLEME ŞABLONU]");
         return;
       }
 
       if (!price) {
-        await sendForceReplyMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⚠️ Fiyat zorunludur! Lütfen fiyatı da ekleyerek tekrar gönderin (Örn: 220 TL):\n\n[DÜZENLEME ŞABLONU]");
+        await sendForceReplyMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⚠️ Fiyat zorunludur! Lütfen fiyat satırını da doldurarak gönderin (Örn: Fiyat: 240 TL):\n\n[DÜZENLEME ŞABLONU]");
         return;
       }
 
-      const dateInfo = parseCustomDate(customDate);
+      const dateInfo = parseCustomDate(customDate || originalDate);
       userSessions.delete(chatId);
 
       const statusMsg = await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⏳ Düzenleme siteye kaydediliyor...");
@@ -229,8 +256,8 @@ async function handleIncomingUpdate(update, env) {
       let mealsList = JSON.parse(githubFile.content);
       const flatMeals = getFlattenedMeals(mealsList);
 
-      if (isNaN(mealNum) || mealNum < 1 || mealNum > flatMeals.length) {
-        await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, statusMsgId, "⚠️ Düzenlenecek öğün numarası bulunamadı.");
+      if (mealNum < 1 || mealNum > flatMeals.length) {
+        await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, statusMsgId, `⚠️ Listede ${flatMeals.length} öğün var, #${mealNum} bulunamadı.`);
         return;
       }
 
@@ -270,7 +297,7 @@ async function handleIncomingUpdate(update, env) {
 
       mealsList.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-      await updateGitHubFile(env.GITHUB_TOKEN, githubFile.sha, JSON.stringify(mealsList, null, 2), `fix: düzenlendi #${mealNum} (${fullTitle})`);
+      await updateGitHubFile(env.GITHUB_TOKEN, githubFile.sha, JSON.stringify(mealsList, null, 2), `fix: düzenlendi #${mealNum} (${fullTitle} - ${price})`);
       const okText = `✅ *#${mealNum} Numaralı Öğün Güncellendi!*\n\n📅 ${dateInfo.day} (${dateInfo.date})\n${guessEmoji(primaryItem)} *${fullTitle}*\n📍 *Konum:* ${loc}\n💰 *Fiyat:* ${price}\n\nSite güncellendi! 🌐`;
       await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, statusMsgId, okText);
       return;
@@ -312,18 +339,19 @@ async function handleIncomingUpdate(update, env) {
       });
 
       // Tek dokunuşla kopyalanabilir hazır şablon
+      const existingPrice = item.meal.price || "";
       const templateText = 
+        `No: ${targetNum}\n` +
         `Yemek: ${existingFood}\n` +
         `İçecek: ${existingDrink}\n` +
         `Konum: ${item.meal.location}\n` +
-        `Fiyat: ${item.meal.price || '200 TL'}\n` +
+        `Fiyat: ${existingPrice}\n` +
         `Tarih: ${item.date}`;
 
       const promptMsg = 
         `✏️ *#${targetNum} Numaralı Öğün Seçildi!*\n\n` +
         `Aşağıdaki gri kutucuğa **tek dokunarak kopyala**, mesaj kutuna yapıştır, istediğin satırı değiştirip gönder:\n\n` +
         `\`\`\`\n${templateText}\n\`\`\`\n\n` +
-        `[DÜZENLEME ŞABLONU] [NO:${targetNum}] [ORIG_DATE:${item.date}]\n` +
         `💡 İçecek yoksa "içmedim" yazabilirsin. İptal için: /iptal`;
 
       await sendForceReplyMessage(env.TELEGRAM_BOT_TOKEN, chatId, promptMsg, "Şablonu yapıştırıp düzenleyin...");
@@ -585,18 +613,19 @@ async function handleIncomingUpdate(update, env) {
           originalDate: item.date
         });
 
+        const existingPrice = item.meal.price || "";
         const templateText = 
+          `No: ${targetNum}\n` +
           `Yemek: ${existingFood}\n` +
           `İçecek: ${existingDrink}\n` +
           `Konum: ${item.meal.location}\n` +
-          `Fiyat: ${item.meal.price || '200 TL'}\n` +
+          `Fiyat: ${existingPrice}\n` +
           `Tarih: ${item.date}`;
 
         const promptMsg = 
           `✏️ *#${targetNum} Numaralı Öğün Seçildi!*\n\n` +
           `Aşağıdaki gri kutucuğa **tek dokunarak kopyala**, mesaj kutuna yapıştır, istediğin satırı değiştirip gönder:\n\n` +
           `\`\`\`\n${templateText}\n\`\`\`\n\n` +
-          `[DÜZENLEME ŞABLONU] [NO:${targetNum}] [ORIG_DATE:${item.date}]\n` +
           `💡 İçecek yoksa "içmedim" yazabilirsin. İptal için: /iptal`;
 
         await sendForceReplyMessage(env.TELEGRAM_BOT_TOKEN, chatId, promptMsg, "Şablonu yapıştırıp düzenleyin...");
@@ -666,13 +695,27 @@ async function handleIncomingUpdate(update, env) {
     }
 
     // ============================================================
-    // 4. Bilinmeyen Komut Kontrolü (/ ile başlıyorsa AI'ya sorma!)
+    // 4. Bilinmeyen Komut ve Şablon Kontrolü (Yapay Zekaya Gitmesini Engelle)
     // ============================================================
     if (userText.startsWith("/")) {
       const unknownMsg = 
         `❓ *Bilinmeyen bir komut yazdın:* \`${userText}\`\n\n` +
         `Kullanabileceğin komutları görmek için: **/yardim**`;
       await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, unknownMsg, "Markdown");
+      return;
+    }
+
+    // Şablon gibi çok satırlı veya etiketli metinler asla yapay zekaya gitmemeli
+    if (userText.toLowerCase().includes("yemek:") || userText.toLowerCase().includes("fiyat:") || userText.includes("\n")) {
+      await sendTelegramMessage(
+        env.TELEGRAM_BOT_TOKEN, 
+        chatId, 
+        "⚠️ Düzenleme şablonu algılandı fakat öğün numarası belirlenemedi.\n\n" +
+        "Lütfen en üst satıra öğün numarasını yazarak gönderin, örn:\n" +
+        "`No: 3`\n" +
+        "`Yemek: ...`\n\n" +
+        "Veya baştan seçmek için: **/duzenle**"
+      );
       return;
     }
 
@@ -759,7 +802,8 @@ function isNoFood(text) {
 }
 
 function extractTag(text, tag) {
-  const match = text.match(new RegExp(`\\[${tag}:(.*?)\\]`));
+  if (!text) return "";
+  const match = text.match(new RegExp(`(?:\\[${tag}:|\\b${tag}:)(.*?)(?:\\]|\\s|$)`, "i"));
   return match ? match[1].trim() : "";
 }
 
