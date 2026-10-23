@@ -400,7 +400,7 @@ async function handleIncomingUpdate(update, env) {
         `Fiyat: ${existingPrice}\n` +
         `Tarih: ${item.date}`;
 
-      const inlineQueryText = `No: ${targetNum} | Yemek: ${existingFood} | İçecek: ${existingDrink} | Konum: ${item.meal.location} | Fiyat: ${existingPrice} | Tarih: ${item.date}`;
+      const inlineQueryText = "\n" + templateText;
 
       const promptMsg = 
         `✏️ *#${targetNum} Numaralı Öğün Seçildi!*\n\n` +
@@ -700,7 +700,7 @@ async function handleIncomingUpdate(update, env) {
           `Fiyat: ${existingPrice}\n` +
           `Tarih: ${item.date}`;
 
-        const inlineQueryText = `No: ${targetNum} | Yemek: ${existingFood} | İçecek: ${existingDrink} | Konum: ${item.meal.location} | Fiyat: ${existingPrice} | Tarih: ${item.date}`;
+        const inlineQueryText = "\n" + templateText;
 
         const promptMsg = 
           `✏️ *#${targetNum} Numaralı Öğün Seçildi!*\n\n` +
