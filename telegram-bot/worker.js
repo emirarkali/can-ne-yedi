@@ -335,7 +335,7 @@ async function handleIncomingUpdate(update, env) {
         });
       }
 
-      mealsList.sort((a, b) => new Date(a.date) - new Date(b.date));
+      mealsList.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
       await updateGitHubFile(env.GITHUB_TOKEN, githubFile.sha, JSON.stringify(mealsList, null, 2), `fix: düzenlendi #${mealNum} (${fullTitle} - ${price})`);
       const foodLine = food ? `${guessEmoji(food)} *Yemek:* ${food}` : "";
@@ -1006,7 +1006,7 @@ function guessCategory(title) {
 
 function getFlattenedMeals(mealsList) {
   const result = [];
-  const sortedDays = [...mealsList].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const sortedDays = [...mealsList].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   for (const day of sortedDays) {
     const reversedMeals = [...(day.meals || [])].reverse();
     for (const meal of reversedMeals) {
@@ -1046,7 +1046,7 @@ async function saveNewMealToGitHub(token, meal, customDate = null, customDay = n
     });
   }
 
-  mealsList.sort((a, b) => new Date(a.date) - new Date(b.date));
+  mealsList.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   await updateGitHubFile(token, githubFile.sha, JSON.stringify(mealsList, null, 2), `feat: ${targetDay} öğünü eklendi (${newMeal.title} - ${newMeal.price})`);
 }
 

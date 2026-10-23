@@ -269,7 +269,7 @@ function renderTimeline() {
   }).filter(day => day.meals.length > 0);
 
   // Sort descending by date so most recent is first
-  filteredDays.sort((a, b) => new Date(b.date) - new Date(a.date));
+  filteredDays.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   if (selectedLocation !== 'all' || searchQuery.trim()) {
     filteredInfo.textContent = `Filtrelendi (${filteredDays.reduce((acc, d) => acc + d.meals.length, 0)} öğün bulundu)`;
