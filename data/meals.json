@@ -161,6 +161,19 @@
         "emoji": "🐟",
         "price": "Kemal ödedi beleş🤠 TL",
         "note": "Balik yedik omega uç"
+      },
+      {
+        "id": "2026-10-24-4002",
+        "title": "Tatlı Kaşığı Spesiyal + Çay+kahve",
+        "items": [
+          "Tatlı Kaşığı Spesiyal",
+          "Çay+kahve"
+        ],
+        "location": "Tatli Kaşığı",
+        "category": "Tatlı",
+        "emoji": "🍰",
+        "price": "250 TL",
+        "note": "Mahir hocayla yedik iyidi"
       }
     ]
   },
