@@ -49,5 +49,23 @@
         "note": "Tatlı biraz fazla şekerliydi çay sınırsız bidaha gidilir"
       }
     ]
+  },
+  {
+    "date": "2026-10-25",
+    "day": "Pazar",
+    "meals": [
+      {
+        "id": "2026-10-25-4663",
+        "title": "Bira",
+        "items": [
+          "Bira"
+        ],
+        "location": "Yurt",
+        "category": "Yemek",
+        "emoji": "🍺",
+        "price": "95 TL",
+        "note": ""
+      }
+    ]
   }
 ]
