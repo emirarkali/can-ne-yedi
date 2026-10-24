@@ -15,6 +15,19 @@
         "emoji": "🐟",
         "price": "280 TL",
         "note": "Güzeldi"
+      },
+      {
+        "id": "2026-10-24-6426",
+        "title": "Kazandini + Çay",
+        "items": [
+          "Kazandini",
+          "Çay"
+        ],
+        "location": "Tatlı Kaşığı",
+        "category": "Yemek",
+        "emoji": "🍽️",
+        "price": "280 TL",
+        "note": "Çay sınırsız olması çok iyiydi"
       }
     ]
   }
