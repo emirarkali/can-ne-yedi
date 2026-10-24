@@ -118,5 +118,24 @@
         "note": "Sikim kalkti"
       }
     ]
+  },
+  {
+    "date": "2026-10-24",
+    "day": "Cumartesi",
+    "meals": [
+      {
+        "id": "2026-10-24-3311",
+        "title": "Et Dôner + Ayran",
+        "items": [
+          "Et Dôner",
+          "Ayran"
+        ],
+        "location": "Tarihi Buca Dönercisi",
+        "category": "Yemek",
+        "emoji": "🍽️",
+        "price": "350 TL",
+        "note": "Lezizo"
+      }
+    ]
   }
 ]
