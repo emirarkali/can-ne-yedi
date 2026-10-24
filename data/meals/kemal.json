@@ -1,1 +1,21 @@
-[]
+[
+  {
+    "date": "2026-10-24",
+    "day": "Cumartesi",
+    "meals": [
+      {
+        "id": "2026-10-24-2597",
+        "title": "Balık Ekmek + Niğde Gazozu",
+        "items": [
+          "Balık Ekmek",
+          "Niğde Gazozu"
+        ],
+        "location": "Deniz Yıldızı",
+        "category": "Yemek",
+        "emoji": "🐟",
+        "price": "280 TL",
+        "note": "Güzeldi"
+      }
+    ]
+  }
+]
