@@ -1,5 +1,24 @@
 [
   {
+    "date": "2026-10-23",
+    "day": "Cuma",
+    "meals": [
+      {
+        "id": "2026-10-23-6326",
+        "title": "Çiğ Köfte + Ayran",
+        "items": [
+          "Çiğ Köfte",
+          "Ayran"
+        ],
+        "location": "Efendy Çiğ Köfte",
+        "category": "Dürüm & Çiğ Köfte",
+        "emoji": "🌯",
+        "price": "130 TL",
+        "note": "Güzeldi"
+      }
+    ]
+  },
+  {
     "date": "2026-10-24",
     "day": "Cumartesi",
     "meals": [
