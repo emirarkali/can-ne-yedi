@@ -1,6 +1,6 @@
-# 🤖 Can Ne Yedi? - Telegram Botu (Yapay Zeka Destekli)
+# 🤖 Kim Ne Yedi? - Telegram Botu (Yapay Zeka Destekli)
 
-Telefondan Telegram'a doğal dille yazdığınız yemekleri otomatik olarak Gemini AI ile analiz edip `data/meals.json` dosyasına ekleyen ve GitHub Pages sitenizi güncelleyen bot.
+Telefondan Telegram'a doğal dille yazdığınız yemekleri otomatik olarak Gemini AI ile analiz edip ilgili kişinin günlüğüne ekleyen ve GitHub Pages sitenizi güncelleyen bot.
 
 ---
 
@@ -27,7 +27,7 @@ Hiçbir bilgisayarı açık bırakmaya gerek kalmadan Cloudflare üzerinde ücre
 ### Adımlar:
 1. [Cloudflare Dashboard](https://dash.cloudflare.com)'a giriş yapın.
 2. **Workers & Pages** > **Create application** > **Create Worker** deyin.
-3. Bir isim verin (örn: `can-ne-yedi-bot`) ve **Deploy**'a tıklayın.
+3. Bir isim verin (örn: `kim-ne-yedi-bot`) ve **Deploy**'a tıklayın.
 4. **Edit code** butonuna basıp bu klasördeki [`worker.js`](worker.js) kodunu yapıştırın ve **Save and Deploy** deyin.
 5. Worker sayfasında **Settings** > **Variables and Secrets** kısmına gelin ve şu Secret'ları ekleyin:
    - `TELEGRAM_BOT_TOKEN`: @BotFather'dan aldığınız token

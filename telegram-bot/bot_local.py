@@ -207,7 +207,7 @@ def poll_updates():
                         if target in USER_PROFILES:
                             chat_active_profiles[chat_id] = target
                             p = USER_PROFILES[target]
-                            send_telegram_msg(chat_id, f"✅ Aktif profil değiştirildi: {p['emoji']} *{p['name']}*\n\n🌐 https://emirarkali.github.io/can-ne-yedi/?u={p['id']}")
+                            send_telegram_msg(chat_id, f"✅ Aktif profil değiştirildi: {p['emoji']} *{p['name']}*\n\n🌐 https://emirarkali.github.io/kim-ne-yedi/?u={p['id']}")
                         else:
                             send_telegram_msg(chat_id, f"⚠️ Profil bulunamadı. Seçenekler: can, emir, kemal")
                     else:
@@ -228,7 +228,7 @@ def poll_updates():
                         f"{meal.get('emoji', '🍽️')} *Öğün:* {meal['title']}\n"
                         f"📍 *Konum:* {meal['location']}\n"
                         f"🏷️ *Kategori:* {meal['category']}\n\n"
-                        f"🌐 https://emirarkali.github.io/can-ne-yedi/?u={active_prof['id']}"
+                        f"🌐 https://emirarkali.github.io/kim-ne-yedi/?u={active_prof['id']}"
                     )
                     send_telegram_msg(chat_id, success_text)
                 except Exception as err:

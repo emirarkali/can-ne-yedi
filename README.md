@@ -2,7 +2,7 @@
 
 Can, Emir ve Kemal'in haftalık yemek günlüğü, kesintisiz yemek zinciri ve gurme durakları takip platformu.
 
-🌐 **Canlı Site:** [https://emirarkali.github.io/can-ne-yedi/](https://emirarkali.github.io/can-ne-yedi/)
+🌐 **Canlı Site:** [https://emirarkali.github.io/kim-ne-yedi/](https://emirarkali.github.io/kim-ne-yedi/)
 - **Can:** `?u=can` (Varsayılan)
 - **Emir:** `?u=emir`
 - **Kemal:** `?u=kemal`

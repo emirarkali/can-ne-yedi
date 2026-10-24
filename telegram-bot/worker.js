@@ -12,7 +12,7 @@
  */
 
 const REPO_OWNER = "emirarkali";
-const REPO_NAME = "can-ne-yedi";
+const REPO_NAME = "kim-ne-yedi";
 const GITHUB_BRANCH = "main";
 
 // 👥 Kullanıcı Profilleri
