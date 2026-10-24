@@ -43,11 +43,11 @@ USER_PROFILES = {
         "name": "Kemal",
         "emoji": "🍕",
         "file": os.path.join(REPO_DIR, "data", "meals", "kemal.json"),
-        "telegram": ["kemal"]
+        "telegram": ["kemalkyy"]
     }
 }
 
-ALLOWED_USERNAMES = ["emirarkali", "fifonee", "kemal"]
+ALLOWED_USERNAMES = ["emirarkali", "fifonee", "kemalkyy"]
 chat_active_profiles = {}  # chat_id -> profile_id
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")

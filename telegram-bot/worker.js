@@ -36,11 +36,11 @@ const USER_PROFILES = {
     name: "Kemal",
     emoji: "🍕",
     filePath: "data/meals/kemal.json",
-    telegramUsernames: ["kemal"]
+    telegramUsernames: ["kemalkyy"]
   }
 };
 
-const ALLOWED_USERNAMES = ["emirarkali", "fifonee", "kemal"];
+const ALLOWED_USERNAMES = ["emirarkali", "fifonee", "kemalkyy"];
 const userSessions = new Map();
 const userActiveProfiles = new Map(); // chatId -> profileId ("can" | "emir" | "kemal")
 const processedUpdateIds = new Set();
@@ -228,7 +228,7 @@ async function handleIncomingUpdate(update, env) {
       (env.ALLOWED_CHAT_ID && String(chatId) === String(env.ALLOWED_CHAT_ID));
 
     if (!isAuthorized) {
-      await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⛔ Üzgünüm, bu bot sadece yetkili kullanıcılar (@emirarkali, @fifonee ve @kemal) tarafından kullanılabilir.");
+      await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⛔ Üzgünüm, bu bot sadece yetkili kullanıcılar (@emirarkali, @fifonee ve @kemalkyy) tarafından kullanılabilir.");
       return;
     }
 

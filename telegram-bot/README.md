@@ -69,7 +69,7 @@ python3 telegram-bot/bot_local.py
 Bot Can, Emir ve Kemal için ortak çalışır. Kullanıcı adınıza göre otomatik olarak profilinizi seçer:
 - **Can:** Telegram `@fifonee` ➔ `data/meals/can.json`
 - **Emir:** Telegram `@emirarkali` ➔ `data/meals/emir.json`
-- **Kemal:** Telegram `@kemal` ➔ `data/meals/kemal.json`
+- **Kemal:** Telegram `@kemalkyy` ➔ `data/meals/kemal.json`
 
 ### 🔄 Profil Değiştirme Komutları:
 - `profil` : Mevcut aktif profili ve butonları gösterir.
