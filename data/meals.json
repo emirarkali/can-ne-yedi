@@ -148,6 +148,19 @@
         "emoji": "🍽️",
         "price": "350 TL",
         "note": "Lezizo"
+      },
+      {
+        "id": "2026-10-24-0008",
+        "title": "Balık Ekmek + Şalgam",
+        "items": [
+          "Balık Ekmek",
+          "Şalgam"
+        ],
+        "location": "Deniz Yıldızı Kemeraltı",
+        "category": "Yemek",
+        "emoji": "🐟",
+        "price": "Kemal ödedi beleş🤠 TL",
+        "note": "Balik yedik omega uç"
       }
     ]
   }
