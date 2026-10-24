@@ -163,5 +163,24 @@
         "note": "Balik yedik omega uç"
       }
     ]
+  },
+  {
+    "date": "2026-10-25",
+    "day": "Pazar",
+    "meals": [
+      {
+        "id": "2026-10-25-0538",
+        "title": "Bira + Bira",
+        "items": [
+          "Bira",
+          "Bira"
+        ],
+        "location": "Yurt",
+        "category": "Yemek",
+        "emoji": "🍺",
+        "price": "200 TL",
+        "note": "Bira ictim guzeldi"
+      }
+    ]
   }
 ]
