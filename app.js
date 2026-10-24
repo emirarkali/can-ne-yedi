@@ -8,9 +8,10 @@ const fallbackData = [
         "id": "2026-10-19-1",
         "title": "Hamburger + Ayran",
         "items": ["Hamburger", "Ayran"],
-        "location": "Yurt",
+        "location": "Neps Burger",
         "category": "Fast Food",
         "emoji": "🍔",
+        "price": "350 TL",
         "note": "Haftanın açılış klasiği"
       }
     ]
@@ -26,6 +27,7 @@ const fallbackData = [
         "location": "McDonald's",
         "category": "Fast Food",
         "emoji": "🍔",
+        "price": "350 TL",
         "note": "McDonald's menüsü"
       }
     ]
@@ -41,6 +43,7 @@ const fallbackData = [
         "location": "McDonald's",
         "category": "Fast Food",
         "emoji": "🍔",
+        "price": "300 TL",
         "note": "İstikrar bozulmuyor"
       }
     ]
@@ -51,29 +54,77 @@ const fallbackData = [
     "meals": [
       {
         "id": "2026-10-22-1",
-        "title": "Tavuk Dürüm (Zater) + Kola",
-        "items": ["Tavuk Dürüm (Zater)", "Kola"],
-        "location": "Yurt",
-        "category": "Dürüm",
-        "emoji": "🌯",
-        "note": "Günün ilk lezzeti"
+        "title": "Hamburger + Özerhisar Ayran",
+        "items": ["Hamburger", "Özerhisar Ayran"],
+        "location": "Jungle Burger",
+        "category": "Fast Food",
+        "emoji": "🍔",
+        "price": "440 TL",
+        "note": ""
       },
       {
         "id": "2026-10-22-2",
-        "title": "Hamburger + Ayran",
-        "items": ["Hamburger", "Ayran"],
-        "location": "Jungle Burger",
-        "category": "Gurme Burger",
-        "emoji": "🍔",
-        "note": "Jungle Burger kapanış"
+        "title": "Tavuk Dürüm + Kola",
+        "items": ["Tavuk Dürüm", "Kola"],
+        "location": "Zater",
+        "category": "Dürüm & Çiğ Köfte",
+        "emoji": "🌯",
+        "price": "240 TL",
+        "note": ""
+      }
+    ]
+  },
+  {
+    "date": "2026-10-23",
+    "day": "Cuma",
+    "meals": [
+      {
+        "id": "2026-10-23-0725",
+        "title": "Tost + Ayran",
+        "items": ["Tost", "Ayran"],
+        "location": "Köfteci Yusuf (buca)",
+        "price": "280 TL",
+        "emoji": "🥪",
+        "category": "Tost & Sandviç",
+        "note": ""
       }
     ]
   }
 ];
 
+// Kullanıcı Listesi ve Aktif Kullanıcı
+let usersList = [
+  {
+    id: "can",
+    name: "Can",
+    fullName: "Can",
+    avatar: "🍔",
+    file: "data/meals/can.json",
+    bio: "19 Ekim 2026'dan itibaren her gün ne yediyse burada kayıt altında. Hamburger tutkusu hız kesmiyor!"
+  },
+  {
+    id: "emir",
+    name: "Emir",
+    fullName: "Emir",
+    avatar: "🌯",
+    file: "data/meals/emir.json",
+    bio: "Sokak lezzetleri ve gurme keşifleri zinciri."
+  },
+  {
+    id: "kemal",
+    name: "Kemal",
+    fullName: "Kemal",
+    avatar: "🍕",
+    file: "data/meals/kemal.json",
+    bio: "Lezzet ve istikrar takibi."
+  }
+];
+
+let currentUser = usersList[0]; // Varsayılan Can
 let allDaysData = [];
 let selectedLocation = 'all';
 let searchQuery = '';
+let currentStatsPeriod = 'current'; // 'current', 'prev', 'all'
 
 // Location color palette mapping for badges
 const locationColors = {
@@ -138,30 +189,8 @@ function formatDateTr(dateStr) {
   }
 }
 
-// Fetch meals data
-async function loadMeals() {
-  try {
-    const response = await fetch('data/meals.json?t=' + Date.now());
-    if (!response.ok) throw new Error('Network error');
-    allDaysData = await response.json();
-  } catch (err) {
-    console.warn('Could not fetch data/meals.json, using bundled data.', err);
-    allDaysData = fallbackData;
-  }
-
-  // Calculate statistics (default: Bu Hafta)
-  computeStats();
-  // Build location filter buttons
-  setupLocationFilters();
-  // Render timeline feed
-  renderTimeline();
-}
-
-let currentStatsPeriod = 'current'; // 'current', 'prev', 'all'
-
 function getWeekBounds(referenceDate = new Date()) {
   const d = new Date(referenceDate);
-  // Turkey ISO week: Pazartesi=0, Pazar=6
   const day = (d.getDay() + 6) % 7;
   const monday = new Date(d);
   monday.setDate(d.getDate() - day);
@@ -193,6 +222,107 @@ function formatShortDateTr(d) {
   return `${d.getDate()} ${monthNames[d.getMonth()]}`;
 }
 
+// Profil Değiştirici Butonlarını Render Et
+function renderProfileSwitcher() {
+  const container = document.getElementById('profileSwitcher');
+  if (!container) return;
+
+  container.innerHTML = usersList.map(u => {
+    const isActive = u.id === currentUser.id;
+    const activeClass = isActive 
+      ? 'bg-brand-500 text-white shadow-sm shadow-brand-500/30 font-bold' 
+      : 'text-slate-400 hover:text-white hover:bg-slate-800/80 font-medium';
+
+    return `
+      <button 
+        onclick="switchUser('${u.id}')" 
+        class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs transition-all ${activeClass}"
+        title="${u.name} Profili"
+      >
+        <span>${u.avatar}</span>
+        <span class="inline">${u.name}</span>
+      </button>
+    `;
+  }).join('');
+}
+
+// Kullanıcı Değiştirme Fonksiyonu
+window.switchUser = async function(userId, updateUrl = true) {
+  const targetUser = usersList.find(u => u.id === userId);
+  if (!targetUser) return;
+
+  currentUser = targetUser;
+
+  // URL Query Parametresini Güncelle (?u=emir)
+  if (updateUrl && window.history && window.history.pushState) {
+    const newUrl = new URL(window.location);
+    newUrl.searchParams.set('u', currentUser.id);
+    window.history.pushState({ userId: currentUser.id }, '', newUrl);
+  }
+
+  // Sayfa başlıkları ve kimliklerini güncelle
+  document.title = `${currentUser.name} Ne Yedi? | Haftalık Lezzet Günlüğü`;
+
+  const headerName = document.getElementById('headerUserName');
+  if (headerName) headerName.textContent = currentUser.name;
+
+  const headerAvatar = document.getElementById('headerUserAvatar');
+  if (headerAvatar) headerAvatar.textContent = currentUser.avatar;
+
+  const heroHeading = document.getElementById('heroUserHeading');
+  if (heroHeading) heroHeading.textContent = `${currentUser.name}'ın Yemek Zinciri`;
+
+  const heroBio = document.getElementById('heroUserBio');
+  if (heroBio) heroBio.textContent = currentUser.bio || `${currentUser.name}'ın haftalık gurme günlüğü ve yemek zinciri.`;
+
+  const footerGreeting = document.getElementById('footerUserGreeting');
+  if (footerGreeting) footerGreeting.textContent = `Afiyet olsun ${currentUser.name}!`;
+
+  renderProfileSwitcher();
+  await loadMeals();
+};
+
+// Verileri Yükle
+async function loadMeals() {
+  selectedLocation = 'all';
+  searchQuery = '';
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) searchInput.value = '';
+
+  const targetFile = currentUser.file || `data/meals/${currentUser.id}.json`;
+
+  try {
+    const response = await fetch(`${targetFile}?t=${Date.now()}`);
+    if (!response.ok) {
+      // Eğer Can profili ise ve can.json henüz yüklenememişse meals.json dene
+      if (currentUser.id === 'can') {
+        const fallbackRes = await fetch(`data/meals.json?t=${Date.now()}`);
+        if (fallbackRes.ok) {
+          allDaysData = await fallbackRes.json();
+        } else {
+          allDaysData = fallbackData;
+        }
+      } else {
+        allDaysData = [];
+      }
+    } else {
+      allDaysData = await response.json();
+    }
+  } catch (err) {
+    console.warn(`Could not fetch ${targetFile}:`, err);
+    if (currentUser.id === 'can') {
+      allDaysData = fallbackData;
+    } else {
+      allDaysData = [];
+    }
+  }
+
+  // İstatistikleri, filtreleri ve akışı hesapla
+  computeStats();
+  setupLocationFilters();
+  renderTimeline();
+}
+
 window.setStatsPeriod = function(period) {
   currentStatsPeriod = period;
   updateStatsPeriodTabs();
@@ -216,6 +346,45 @@ function updateStatsPeriodTabs() {
 function computeStats() {
   const allTimeDaysCount = allDaysData.length;
 
+  const streakPill = document.getElementById('heroStreakPill');
+  const streakStatus = document.getElementById('heroStreakStatus');
+  const streakEmoji = document.getElementById('streakEmoji');
+  const streakCount = document.getElementById('streakCount');
+
+  // Boş durum (Henüz öğün eklenmemiş yeni kullanıcı)
+  if (allTimeDaysCount === 0) {
+    if (streakCount) streakCount.innerText = "0 Gün";
+    if (streakEmoji) streakEmoji.innerText = "🌱";
+    if (streakStatus) streakStatus.innerText = "İlk Öğün Bekleniyor";
+    if (streakPill) {
+      streakPill.className = "inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-xs font-semibold mb-3";
+    }
+
+    document.getElementById('totalDays').innerHTML = `<i data-lucide="calendar" class="w-4 h-4 text-brand-400"></i> 0 Gün`;
+    document.getElementById('totalMeals').innerHTML = `<i data-lucide="utensils" class="w-4 h-4 text-emerald-400"></i> 0 Öğün`;
+    document.getElementById('burgerCountVal').innerText = `0 Adet`;
+    if (document.getElementById('colaCountVal')) {
+      document.getElementById('colaCountVal').innerText = `0 Kutu`;
+    }
+    if (document.getElementById('expenseVal')) {
+      document.getElementById('expenseVal').innerText = `0 ₺`;
+    }
+    document.getElementById('totalLocations').innerHTML = `<i data-lucide="map-pin" class="w-4 h-4 text-rose-400"></i> 0 Yer`;
+
+    const rangeEl = document.getElementById('statsPeriodDateRange');
+    if (rangeEl) rangeEl.innerHTML = `<i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-500"></i> Henüz kayıt yok`;
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  // Zincir aktif
+  if (streakCount) streakCount.innerText = `${allTimeDaysCount} Gün`;
+  if (streakEmoji) streakEmoji.innerText = "🔥";
+  if (streakStatus) streakStatus.innerText = "Zincir Kırılmıyor 🔥";
+  if (streakPill) {
+    streakPill.className = "inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-semibold mb-3";
+  }
+
   // En son kaydın tarihini veya bugünü referans al
   let refDate = new Date();
   if (allDaysData.length > 0) {
@@ -227,7 +396,6 @@ function computeStats() {
 
   const { current, prev } = getWeekBounds(refDate);
 
-  // Tarih aralığı metnini ve harcama etiketini güncelle
   const rangeEl = document.getElementById('statsPeriodDateRange');
   const labelEl = document.getElementById('expenseLabel');
 
@@ -244,7 +412,6 @@ function computeStats() {
     }
   }
 
-  // Seçili döneme ait günleri filtrele
   let targetDays = allDaysData;
   if (currentStatsPeriod === 'current') {
     targetDays = allDaysData.filter(d => {
@@ -301,7 +468,6 @@ function computeStats() {
     document.getElementById('expenseVal').innerText = `${totalExpense.toLocaleString('tr-TR')} ₺`;
   }
   document.getElementById('totalLocations').innerHTML = `<i data-lucide="map-pin" class="w-4 h-4 text-rose-400"></i> ${locationsSet.size} Yer`;
-  document.getElementById('streakCount').innerText = `${allTimeDaysCount} Gün`;
 }
 
 function setupLocationFilters() {
@@ -345,14 +511,30 @@ function renderTimeline() {
   const container = document.getElementById('timelineContainer');
   const filteredInfo = document.getElementById('mealsFilteredInfo');
 
-  // Filter meals according to location and search query
+  if (allDaysData.length === 0) {
+    if (filteredInfo) filteredInfo.textContent = 'Kayıt bulunmuyor';
+    container.innerHTML = `
+      <div class="py-14 px-6 text-center bg-slate-900/60 rounded-3xl border border-slate-800/80 -ml-6 sm:-ml-8">
+        <div class="text-4xl mb-3">${currentUser.avatar || '🍽️'}</div>
+        <h4 class="text-base font-bold text-white mb-1">Henüz ${currentUser.name} İçin Öğün Eklenmedi</h4>
+        <p class="text-xs text-slate-400 max-w-md mx-auto mb-5 leading-relaxed">
+          Telegram botuna yediğin yemeği, mekanı ve fiyatı yazarak (${currentUser.name} profili aktifken) ilk lezzetini hemen günlüğe ekleyebilirsin!
+        </p>
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono text-brand-300">
+          💬 "Bugün yurtta tavuk dürüm ve kola gömdüm 240 TL"
+        </div>
+      </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  // Filtreleme
   const filteredDays = allDaysData.map(day => {
     const filteredMeals = (day.meals || []).filter(meal => {
-      // Location filter
       const matchesLocation = (selectedLocation === 'all') || (meal.location === selectedLocation);
       if (!matchesLocation) return false;
 
-      // Search query
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
       const inTitle = meal.title && meal.title.toLowerCase().includes(q);
@@ -368,7 +550,7 @@ function renderTimeline() {
     };
   }).filter(day => day.meals.length > 0);
 
-  // Sort descending by date so most recent is first
+  // En yeni tarih ilk sırada
   filteredDays.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   if (selectedLocation !== 'all' || searchQuery.trim()) {
@@ -494,10 +676,13 @@ function renderTimeline() {
 }
 
 // Search input listener
-document.getElementById('searchInput').addEventListener('input', (e) => {
-  searchQuery = e.target.value;
-  renderTimeline();
-});
+const searchEl = document.getElementById('searchInput');
+if (searchEl) {
+  searchEl.addEventListener('input', (e) => {
+    searchQuery = e.target.value;
+    renderTimeline();
+  });
+}
 
 // Modal Logic
 const modal = document.getElementById('infoModal');
@@ -509,34 +694,69 @@ const copyText = document.getElementById('copyText');
 const sampleSnippet = document.getElementById('sampleJsonSnippet');
 
 function openModal() {
-  modal.classList.remove('hidden');
+  if (modal) modal.classList.remove('hidden');
 }
 function closeModal() {
-  modal.classList.add('hidden');
+  if (modal) modal.classList.add('hidden');
 }
 
 if (openModalBtn) openModalBtn.addEventListener('click', openModal);
 if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
 if (modalDoneBtn) modalDoneBtn.addEventListener('click', closeModal);
 
-modal.addEventListener('click', (e) => {
-  if (e.target === modal) closeModal();
-});
+if (modal) {
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+}
 
-copySnippetBtn.addEventListener('click', async () => {
-  try {
-    await navigator.clipboard.writeText(sampleSnippet.innerText);
-    copyText.innerText = 'Kopyalandı! ✓';
-    setTimeout(() => {
-      copyText.innerText = 'Kopyala';
-    }, 2000);
-  } catch (err) {
-    console.error('Failed to copy: ', err);
-  }
+if (copySnippetBtn && sampleSnippet) {
+  copySnippetBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(sampleSnippet.innerText);
+      if (copyText) copyText.innerText = 'Kopyalandı! ✓';
+      setTimeout(() => {
+        if (copyText) copyText.innerText = 'Kopyala';
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+    }
+  });
+}
+
+// Tarayıcı Geri/İleri Butonları Dinle
+window.addEventListener('popstate', (e) => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const u = urlParams.get('u') || urlParams.get('user') || 'can';
+  switchUser(u, false);
 });
 
 // Initial boot
-document.addEventListener('DOMContentLoaded', () => {
-  loadMeals();
-});
+document.addEventListener('DOMContentLoaded', async () => {
+  // users.json'ı yüklemeye çalış
+  try {
+    const usersRes = await fetch('data/users.json?t=' + Date.now());
+    if (usersRes.ok) {
+      const fetchedUsers = await usersRes.json();
+      if (Array.isArray(fetchedUsers) && fetchedUsers.length > 0) {
+        usersList = fetchedUsers;
+      }
+    }
+  } catch (e) {
+    console.warn('Could not fetch data/users.json, using defaults.', e);
+  }
 
+  // URL'den kullanıcı parametresini al (?u=emir veya ?user=can)
+  const urlParams = new URLSearchParams(window.location.search);
+  const requestedUserId = urlParams.get('u') || urlParams.get('user');
+
+  if (requestedUserId) {
+    const matched = usersList.find(u => u.id.toLowerCase() === requestedUserId.toLowerCase());
+    if (matched) {
+      currentUser = matched;
+    }
+  }
+
+  // Arayüzü başlat
+  switchUser(currentUser.id, false);
+});

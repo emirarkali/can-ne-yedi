@@ -13,12 +13,54 @@
 
 const REPO_OWNER = "emirarkali";
 const REPO_NAME = "can-ne-yedi";
-const FILE_PATH = "data/meals.json";
 const GITHUB_BRANCH = "main";
 
-const ALLOWED_USERNAMES = ["emirarkali", "fifonee"];
+// 👥 Kullanıcı Profilleri
+const USER_PROFILES = {
+  "can": {
+    id: "can",
+    name: "Can",
+    emoji: "🍔",
+    filePath: "data/meals/can.json",
+    telegramUsernames: ["fifonee"]
+  },
+  "emir": {
+    id: "emir",
+    name: "Emir",
+    emoji: "🌯",
+    filePath: "data/meals/emir.json",
+    telegramUsernames: ["emirarkali"]
+  },
+  "kemal": {
+    id: "kemal",
+    name: "Kemal",
+    emoji: "🍕",
+    filePath: "data/meals/kemal.json",
+    telegramUsernames: ["kemal"]
+  }
+};
+
+const ALLOWED_USERNAMES = ["emirarkali", "fifonee", "kemal"];
 const userSessions = new Map();
+const userActiveProfiles = new Map(); // chatId -> profileId ("can" | "emir" | "kemal")
 const processedUpdateIds = new Set();
+
+function getActiveProfile(chatId, fromUsername = "") {
+  // 1. Kullanıcı bu sohbette profil seçmişse
+  if (userActiveProfiles.has(chatId)) {
+    const pid = userActiveProfiles.get(chatId);
+    if (USER_PROFILES[pid]) return USER_PROFILES[pid];
+  }
+  // 2. Telegram kullanıcı adına göre eşleştir
+  const clean = (fromUsername || "").toLowerCase().replace("@", "");
+  for (const prof of Object.values(USER_PROFILES)) {
+    if (prof.telegramUsernames.some(u => u.toLowerCase() === clean)) {
+      return prof;
+    }
+  }
+  // 3. Varsayılan olarak Can profili
+  return USER_PROFILES["can"];
+}
 
 function getTurkeyTimeInfo(offsetDays = 0) {
   const now = new Date();
@@ -145,6 +187,16 @@ export default {
         return new Response("OK", { status: 200 });
       }
 
+      // Callback Query Desteği (Profil butonları vb.)
+      if (update.callback_query) {
+        if (ctx && ctx.waitUntil) {
+          ctx.waitUntil(handleCallbackQuery(update.callback_query, env));
+        } else {
+          await handleCallbackQuery(update.callback_query, env);
+        }
+        return new Response("OK", { status: 200 });
+      }
+
       if (ctx && ctx.waitUntil) {
         ctx.waitUntil(handleIncomingUpdate(update, env));
       } else {
@@ -176,9 +228,12 @@ async function handleIncomingUpdate(update, env) {
       (env.ALLOWED_CHAT_ID && String(chatId) === String(env.ALLOWED_CHAT_ID));
 
     if (!isAuthorized) {
-      await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⛔ Üzgünüm, bu bot sadece yetkili kullanıcılar (@emirarkali ve @fiFonee) tarafından kullanılabilir.");
+      await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⛔ Üzgünüm, bu bot sadece yetkili kullanıcılar (@emirarkali, @fifonee ve @kemal) tarafından kullanılabilir.");
       return;
     }
+
+    // Aktif Profil
+    const activeProfile = getActiveProfile(chatId, fromUsername);
 
     // /iptal veya vazgeç
     const cancelText = userText.toLowerCase().replace(/İ/g, "i").replace(/I/g, "ı").replace(/^\//, "").trim();
@@ -298,8 +353,13 @@ async function handleIncomingUpdate(update, env) {
       }
       const primaryItem = food || drink;
 
-      const githubFile = await getGitHubFile(env.GITHUB_TOKEN);
-      let mealsList = JSON.parse(githubFile.content);
+      const githubFile = await getGitHubFile(env.GITHUB_TOKEN, activeProfile.filePath);
+      let mealsList = [];
+      try {
+        mealsList = JSON.parse(githubFile.content);
+      } catch (e) {
+        mealsList = [];
+      }
       const flatMeals = getFlattenedMeals(mealsList);
 
       if (mealNum < 1 || mealNum > flatMeals.length) {
@@ -343,19 +403,34 @@ async function handleIncomingUpdate(update, env) {
 
       mealsList.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-      await updateGitHubFile(env.GITHUB_TOKEN, githubFile.sha, JSON.stringify(mealsList, null, 2), `fix: düzenlendi #${mealNum} (${fullTitle} - ${price})`);
+      await updateGitHubFile(
+        env.GITHUB_TOKEN, 
+        githubFile.sha, 
+        JSON.stringify(mealsList, null, 2), 
+        `fix(${activeProfile.id}): düzenlendi #${mealNum} (${fullTitle} - ${price})`,
+        activeProfile.filePath
+      );
+
+      // Can profili ise data/meals.json senkronize et
+      if (activeProfile.id === "can") {
+        try {
+          const syncFile = await getGitHubFile(env.GITHUB_TOKEN, "data/meals.json");
+          await updateGitHubFile(env.GITHUB_TOKEN, syncFile.sha, JSON.stringify(mealsList, null, 2), `sync: meals.json`, "data/meals.json");
+        } catch (e) {}
+      }
+
       const foodLine = food ? `${guessEmoji(food)} *Yemek:* ${food}` : "";
       const drinkLine = drink ? `🥤 *İçecek:* ${drink}` : "🥤 *İçecek:* (İçilmedi)";
       const noteLine = note ? `💬 *Not:* ${note}\n` : "";
       const okText = 
-        `✅ *#${mealNum} Numaralı Öğün Güncellendi!*\n\n` +
+        `✅ *#${mealNum} Numaralı Öğün Güncellendi!* (${activeProfile.emoji} ${activeProfile.name})\n\n` +
         `📅 *Tarih:* ${dateInfo.day} (${dateInfo.date})\n` +
         `${foodLine ? foodLine + "\n" : ""}` +
         `${drinkLine}\n` +
         `📍 *Konum:* ${loc}\n` +
         `💰 *Fiyat:* ${price}\n` +
         `${noteLine}\n` +
-        `Site güncellendi! 🌐`;
+        `🌐 https://${REPO_OWNER}.github.io/${REPO_NAME}/?u=${activeProfile.id}`;
       await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, statusMsgId, okText);
       return;
     }
@@ -371,12 +446,17 @@ async function handleIncomingUpdate(update, env) {
         return;
       }
 
-      const githubFile = await getGitHubFile(env.GITHUB_TOKEN);
-      const mealsList = JSON.parse(githubFile.content);
+      const githubFile = await getGitHubFile(env.GITHUB_TOKEN, activeProfile.filePath);
+      let mealsList = [];
+      try {
+        mealsList = JSON.parse(githubFile.content);
+      } catch (e) {
+        mealsList = [];
+      }
       const flatMeals = getFlattenedMeals(mealsList);
 
       if (targetNum > flatMeals.length) {
-        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `⚠️ Geçersiz numara! Listede ${flatMeals.length} öğün var.`);
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `⚠️ Geçersiz numara! ${activeProfile.name} listesinde ${flatMeals.length} öğün var.`);
         return;
       }
 
@@ -414,7 +494,7 @@ async function handleIncomingUpdate(update, env) {
       const inlineQueryText = "\n" + templateText;
 
       const promptMsg = 
-        `✏️ *#${targetNum} Numaralı Öğün Seçildi!*\n\n` +
+        `✏️ *#${targetNum} Numaralı Öğün Seçildi!* (${activeProfile.emoji} ${activeProfile.name})\n\n` +
         `Aşağıdaki gri kutucuğa **tek dokunarak kopyalayabilir** veya alttaki **"✏️ Mesaj Kutusuna Doldur"** butonuna basabilirsin:\n\n` +
         `\`\`\`\n${templateText}\n\`\`\`\n\n` +
         `💡 İçecek veya not yoksa boş bırakabilir veya "yok" yazabilirsin. İptal için: iptal`;
@@ -451,8 +531,13 @@ async function handleIncomingUpdate(update, env) {
       const statusMsg = await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⏳ Öğün siteden siliniyor...");
       const statusMsgId = statusMsg ? statusMsg.message_id : null;
 
-      const githubFile = await getGitHubFile(env.GITHUB_TOKEN);
-      let mealsList = JSON.parse(githubFile.content);
+      const githubFile = await getGitHubFile(env.GITHUB_TOKEN, activeProfile.filePath);
+      let mealsList = [];
+      try {
+        mealsList = JSON.parse(githubFile.content);
+      } catch (e) {
+        mealsList = [];
+      }
       const flatMeals = getFlattenedMeals(mealsList);
 
       if (targetNum > flatMeals.length) {
@@ -469,8 +554,23 @@ async function handleIncomingUpdate(update, env) {
         }
       }
 
-      await updateGitHubFile(env.GITHUB_TOKEN, githubFile.sha, JSON.stringify(mealsList, null, 2), `chore: silindi #${targetNum}`);
-      await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, statusMsgId, `🗑️ *Öğün Silindi!*\n\n*${itemToDelete.meal.title}* siteden kaldırıldı.`);
+      await updateGitHubFile(
+        env.GITHUB_TOKEN, 
+        githubFile.sha, 
+        JSON.stringify(mealsList, null, 2), 
+        `chore(${activeProfile.id}): silindi #${targetNum}`,
+        activeProfile.filePath
+      );
+
+      // Can profili ise data/meals.json senkronize et
+      if (activeProfile.id === "can") {
+        try {
+          const syncFile = await getGitHubFile(env.GITHUB_TOKEN, "data/meals.json");
+          await updateGitHubFile(env.GITHUB_TOKEN, syncFile.sha, JSON.stringify(mealsList, null, 2), `sync: meals.json`, "data/meals.json");
+        } catch (e) {}
+      }
+
+      await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, statusMsgId, `🗑️ *Öğün Silindi!*\n\n*${itemToDelete.meal.title}* ${activeProfile.name}'ın günlüğünden kaldırıldı.`);
       return;
     }
 
@@ -610,20 +710,20 @@ async function handleIncomingUpdate(update, env) {
           category: guessCategory(primaryItem),
           emoji: guessEmoji(primaryItem),
           note: note
-        }, dateInfo.date, dateInfo.day);
+        }, dateInfo.date, dateInfo.day, activeProfile);
 
         const foodLine = food ? `${guessEmoji(food)} *Yemek:* ${food}` : "";
         const drinkLine = drink ? `🥤 *İçecek:* ${drink}` : "🥤 *İçecek:* (İçilmedi)";
         const noteLine = note ? `💬 *Not:* ${note}\n` : "";
         const okText = 
-          `✅ *Siteye Eklendi!*\n\n` +
+          `✅ *Siteye Eklendi!* (${activeProfile.emoji} ${activeProfile.name})\n\n` +
           `📅 *Tarih:* ${dateInfo.day} (${dateInfo.date})\n` +
           `${foodLine ? foodLine + "\n" : ""}` +
           `${drinkLine}\n` +
           `📍 *Konum:* ${loc}\n` +
           `💰 *Fiyat:* ${price}\n` +
           `${noteLine}\n` +
-          `🌐 https://${REPO_OWNER}.github.io/${REPO_NAME}/`;
+          `🌐 https://${REPO_OWNER}.github.io/${REPO_NAME}/?u=${activeProfile.id}`;
         await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, statusMsgId, okText);
         return;
       }
@@ -643,6 +743,9 @@ async function handleIncomingUpdate(update, env) {
     const cmdParts = rawClean.split(/\s+/).filter(Boolean);
     const cmdWord = (cmdParts[0] || "").replace(/[.,:;!?]+$/, "");
 
+    const PROFIL_ALIASES = [
+      "profil", "profile", "kullanici", "hesap", "sec", "degistir", "kimim"
+    ];
     const DUZENLE_ALIASES = [
       "duzenle", "duzen", "guncelle", "guncelleme", "duzelt", "duzeltme",
       "degistir", "degistirme", "edit", "update", "modify"
@@ -663,16 +766,74 @@ async function handleIncomingUpdate(update, env) {
     // /start ve /yardim
     if (YARDIM_ALIASES.includes(cmdWord)) {
       const helpMsg = 
-        "🍔 *Can Ne Yedi? Yönetim Asistanı*\n\n" +
-        "📌 *Komutlar (ister / ile ister doğrudan yaz):*\n" +
-        "• `ekle` : Adım adım sorarak yeni öğün ekler.\n" +
-        "• `duzenle` / `guncelle` : Listeyi açar veya `guncelle 3` yazarak doğrudan şablonu alabilirsin!\n" +
-        "• `liste` : Son öğünleri numaralarıyla gösterir.\n" +
-        "• `sil` : Listeyi açar ve numarasını sorarak sildirir (veya `sil 2`).\n" +
-        "• `iptal` : Devam eden işlemi iptal eder.\n\n" +
-        "🤖 *Doğal Dil ile Hızlı Ekleme:*\n" +
-        "• `McDonald'sda hamburger menü yedim 230 tl yanında fuse tea şeftali`";
+        `🍽️ *Kim Ne Yedi? Yönetim Asistanı*\n` +
+        `👤 *Aktif Profil:* ${activeProfile.emoji} *${activeProfile.name}*\n\n` +
+        `📌 *Komutlar (ister / ile ister doğrudan yaz):*\n` +
+        `• \`profil\` : Aktif profili gösterir ve değiştirir (Can, Emir, Kemal)\n` +
+        `• \`ekle\` : Adım adım sorarak yeni öğün ekler.\n` +
+        `• \`duzenle\` / \`guncelle\` : Listeyi açar veya \`guncelle 3\` yazarak doğrudan şablonu alabilirsin!\n` +
+        `• \`liste\` : Seçili profilin son öğünlerini gösterir.\n` +
+        `• \`sil\` : Listeyi açar ve numarasını sorarak sildirir (veya \`sil 2\`).\n` +
+        `• \`iptal\` : Devam eden işlemi iptal eder.\n\n` +
+        `🤖 *Doğal Dil ile Hızlı Ekleme:*\n` +
+        `• \`McDonald'sda hamburger menü yedim 230 tl yanında fuse tea şeftali\`\n\n` +
+        `🌐 *Canlı Site:* https://${REPO_OWNER}.github.io/${REPO_NAME}/?u=${activeProfile.id}`;
       await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, helpMsg, "Markdown");
+      return;
+    }
+
+    // /profil veya profil <isim>
+    if (PROFIL_ALIASES.includes(cmdWord)) {
+      const targetParam = cmdParts[1] ? cmdParts[1].toLowerCase().replace("@", "") : null;
+      if (targetParam) {
+        const foundProf = Object.values(USER_PROFILES).find(p => 
+          p.id.toLowerCase() === targetParam || 
+          p.name.toLowerCase() === targetParam ||
+          p.telegramUsernames.some(u => u.toLowerCase() === targetParam)
+        );
+
+        if (foundProf) {
+          userActiveProfiles.set(chatId, foundProf.id);
+          const switchSuccess = 
+            `✅ *Aktif Profil Değiştirildi:* ${foundProf.emoji} *${foundProf.name}*\n\n` +
+            `Artık ekleyeceğin, listeleyeceğin veya düzenleyeceğin tüm öğünler *${foundProf.name}* adına kaydedilecek.\n` +
+            `📁 Dosya: \`${foundProf.filePath}\`\n\n` +
+            `🌐 https://${REPO_OWNER}.github.io/${REPO_NAME}/?u=${foundProf.id}`;
+          await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, switchSuccess, "Markdown");
+          return;
+        } else {
+          await sendTelegramMessage(
+            env.TELEGRAM_BOT_TOKEN, 
+            chatId, 
+            `⚠️ '*${targetParam}*' adında bir profil bulunamadı.\n\n` +
+            `Kullanılabilir profiller:\n` +
+            `• \`profil can\` (🍔 Can)\n` +
+            `• \`profil emir\` (🌯 Emir)\n` +
+            `• \`profil kemal\` (🍕 Kemal)`
+          );
+          return;
+        }
+      }
+
+      // Argümansız /profil
+      const profileButtons = [
+        [
+          { text: "🍔 Can", callback_data: "set_profile:can" },
+          { text: "🌯 Emir", callback_data: "set_profile:emir" },
+          { text: "🍕 Kemal", callback_data: "set_profile:kemal" }
+        ]
+      ];
+
+      const currentMsg = 
+        `👤 *Mevcut Aktif Profil:* ${activeProfile.emoji} *${activeProfile.name}*\n` +
+        `📁 Hedef Dosya: \`${activeProfile.filePath}\`\n\n` +
+        `🔄 *Profil Değiştirmek İçin Butona Bas veya Yaz:*\n` +
+        `• \`profil can\` ➔ 🍔 Can\n` +
+        `• \`profil emir\` ➔ 🌯 Emir\n` +
+        `• \`profil kemal\` ➔ 🍕 Kemal\n\n` +
+        `💡 *İpucu:* Yemek eklerken doğrudan o anki aktif profilin günlüğüne işlenir.`;
+
+      await sendInlineButtonMessage(env.TELEGRAM_BOT_TOKEN, chatId, currentMsg, profileButtons);
       return;
     }
 
@@ -681,7 +842,7 @@ async function handleIncomingUpdate(update, env) {
       userSessions.set(chatId, { action: "ekle", step: 1 });
       const { date: todayDate, day: todayDay } = getTurkeyTimeInfo();
       const step1Msg = 
-        `➕ [EKLE-ADIM 1]\n\n` +
+        `➕ [EKLE-ADIM 1] (${activeProfile.emoji} ${activeProfile.name})\n\n` +
         `1️⃣ *Hangi gün için ekliyorsun?*\n` +
         `_(Örn: 'bugün', 'dün', '21 Ekim' veya 'Salı')_\n\n` +
         `💡 Bugün için doğrudan *bugün* yazabilirsin (${todayDay}).`;
@@ -691,16 +852,21 @@ async function handleIncomingUpdate(update, env) {
 
     // /liste
     if (LISTE_ALIASES.includes(cmdWord) && cmdParts.length <= 2) {
-      const githubFile = await getGitHubFile(env.GITHUB_TOKEN);
-      const mealsList = JSON.parse(githubFile.content);
+      const githubFile = await getGitHubFile(env.GITHUB_TOKEN, activeProfile.filePath);
+      let mealsList = [];
+      try {
+        mealsList = JSON.parse(githubFile.content);
+      } catch (e) {
+        mealsList = [];
+      }
       const flatMeals = getFlattenedMeals(mealsList);
 
       if (flatMeals.length === 0) {
-        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "📭 Henüz kayıtlı öğün bulunmuyor.");
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `📭 ${activeProfile.name} (${activeProfile.emoji}) için henüz kayıtlı öğün bulunmuyor.`);
         return;
       }
 
-      let listMsg = "📋 *Son Eklenen Öğünler:*\n\n";
+      let listMsg = `📋 *Son Eklenen Öğünler (${activeProfile.emoji} ${activeProfile.name}):*\n\n`;
       flatMeals.slice(0, 8).forEach((item, index) => {
         const num = index + 1;
         const priceStr = item.meal.price ? ` - 💰 *${item.meal.price}*` : "";
@@ -710,7 +876,8 @@ async function handleIncomingUpdate(update, env) {
 
       listMsg += "💡 *İşlemler:*\n";
       listMsg += "• Düzenlemek için: `duzenle` veya `guncelle 1`\n";
-      listMsg += "• Silmek için: `sil` veya `sil 1`";
+      listMsg += "• Silmek için: `sil` veya `sil 1`\n";
+      listMsg += "• Profil değiştirmek için: `profil`";
 
       await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, listMsg, "Markdown");
       return;
@@ -721,12 +888,17 @@ async function handleIncomingUpdate(update, env) {
       (cmdParts.length <= 4 && cmdParts.some(p => DUZENLE_ALIASES.includes(p.replace(/[.,:;!?]+$/, ""))));
 
     if (isDuzenle) {
-      const githubFile = await getGitHubFile(env.GITHUB_TOKEN);
-      const mealsList = JSON.parse(githubFile.content);
+      const githubFile = await getGitHubFile(env.GITHUB_TOKEN, activeProfile.filePath);
+      let mealsList = [];
+      try {
+        mealsList = JSON.parse(githubFile.content);
+      } catch (e) {
+        mealsList = [];
+      }
       const flatMeals = getFlattenedMeals(mealsList);
 
       if (flatMeals.length === 0) {
-        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "📭 Düzenlenecek kayıtlı öğün bulunmuyor.");
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `📭 ${activeProfile.name} için düzenlenecek kayıtlı öğün bulunmuyor.`);
         return;
       }
 
@@ -833,12 +1005,17 @@ async function handleIncomingUpdate(update, env) {
       (cmdParts.length <= 4 && cmdParts.some(p => SIL_ALIASES.includes(p.replace(/[.,:;!?]+$/, ""))));
 
     if (isSil) {
-      const githubFile = await getGitHubFile(env.GITHUB_TOKEN);
-      let mealsList = JSON.parse(githubFile.content);
+      const githubFile = await getGitHubFile(env.GITHUB_TOKEN, activeProfile.filePath);
+      let mealsList = [];
+      try {
+        mealsList = JSON.parse(githubFile.content);
+      } catch (e) {
+        mealsList = [];
+      }
       const flatMeals = getFlattenedMeals(mealsList);
 
       if (flatMeals.length === 0) {
-        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "📭 Silinecek kayıtlı öğün bulunmuyor.");
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `📭 ${activeProfile.name} için silinecek kayıtlı öğün bulunmuyor.`);
         return;
       }
 
@@ -869,14 +1046,29 @@ async function handleIncomingUpdate(update, env) {
           }
         }
 
-        await updateGitHubFile(env.GITHUB_TOKEN, githubFile.sha, JSON.stringify(mealsList, null, 2), `chore: silindi #${targetNum}`);
-        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `🗑️ *Öğün Silindi!*\n\n*${itemToDelete.meal.title}* siteden kaldırıldı.`);
+        await updateGitHubFile(
+          env.GITHUB_TOKEN, 
+          githubFile.sha, 
+          JSON.stringify(mealsList, null, 2), 
+          `chore(${activeProfile.id}): silindi #${targetNum}`,
+          activeProfile.filePath
+        );
+
+        // Can profili ise data/meals.json senkronize et
+        if (activeProfile.id === "can") {
+          try {
+            const syncFile = await getGitHubFile(env.GITHUB_TOKEN, "data/meals.json");
+            await updateGitHubFile(env.GITHUB_TOKEN, syncFile.sha, JSON.stringify(mealsList, null, 2), `sync: meals.json`, "data/meals.json");
+          } catch (e) {}
+        }
+
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `🗑️ *Öğün Silindi!*\n\n*${itemToDelete.meal.title}* ${activeProfile.name}'ın günlüğünden kaldırıldı.`);
         return;
       }
 
       userSessions.set(chatId, { action: "sil" });
 
-      let listMsg = "🗑️ [SİLME MODU]\n\n📋 *Mevcut Öğünler:*\n\n";
+      let listMsg = `🗑️ [SİLME MODU] (${activeProfile.emoji} ${activeProfile.name})\n\n📋 *Mevcut Öğünler:*\n\n`;
       flatMeals.slice(0, 8).forEach((item, index) => {
         const num = index + 1;
         const priceStr = item.meal.price ? ` - 💰 ${item.meal.price}` : "";
@@ -904,7 +1096,9 @@ async function handleIncomingUpdate(update, env) {
     if (userText.startsWith("/") || cmdParts.length === 1) {
       const unknownMsg = 
         `❓ *Komut anlaşılamadı:* \`${userText}\`\n\n` +
+        `👤 *Aktif Profil:* ${activeProfile.emoji} *${activeProfile.name}*\n\n` +
         `💡 *Kullanabileceğin komutlar (başına / koyman zorunlu DEĞİLDİR):*\n` +
+        `• *profil* : Profili gösterir / değiştirir (Can, Emir, Kemal)\n` +
         `• *ekle* : Adım adım yeni öğün ekler\n` +
         `• *duzenle* / *guncelle* : Öğünleri listeler ve düzenletir (Örn: \`duzenle 3\` veya \`guncelle\`)\n` +
         `• *liste* : Son öğünleri gösterir\n` +
@@ -932,7 +1126,7 @@ async function handleIncomingUpdate(update, env) {
     // ============================================================
     // 5. Doğal Dil ile Ekleme (CANLI İLERLEME GÖSTERGELİ!)
     // ============================================================
-    const liveMsg = await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, "⏳ [1/2] Yapay zeka menünü çözümlüyor...");
+    const liveMsg = await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, `⏳ [1/2] ${activeProfile.name} için menü çözümleniyor...`);
     const liveMsgId = liveMsg ? liveMsg.message_id : null;
 
     let parsedData = null;
@@ -961,10 +1155,10 @@ async function handleIncomingUpdate(update, env) {
       env.TELEGRAM_BOT_TOKEN, 
       chatId, 
       liveMsgId, 
-      `📝 [2/2] *${parsedData.meal.title}* (${parsedData.meal.price}) anlaşıldı ➔ GitHub'a kaydediliyor...`
+      `📝 [2/2] *${parsedData.meal.title}* (${parsedData.meal.price}) anlaşıldı ➔ ${activeProfile.name}'ın günlüğüne kaydediliyor...`
     );
 
-    await saveNewMealToGitHub(env.GITHUB_TOKEN, parsedData.meal, parsedData.date, parsedData.day);
+    await saveNewMealToGitHub(env.GITHUB_TOKEN, parsedData.meal, parsedData.date, parsedData.day, activeProfile);
 
     const mealItems = parsedData.meal.items || [parsedData.meal.title];
     const aiFood = mealItems[0] || parsedData.meal.title;
@@ -973,14 +1167,14 @@ async function handleIncomingUpdate(update, env) {
     const drinkLine = aiDrink ? `🥤 *İçecek:* ${aiDrink}` : "🥤 *İçecek:* (İçilmedi)";
     const noteLine = parsedData.meal.note ? `💬 *Not:* ${parsedData.meal.note}\n` : "";
     const finalSuccessMsg = 
-      `✅ *Harika, siteye eklendi!*\n\n` +
+      `✅ *Harika, ${activeProfile.name}'ın günlüğüne eklendi!* (${activeProfile.emoji})\n\n` +
       `📅 *Tarih:* ${parsedData.day} (${parsedData.date})\n` +
       `${foodLine}\n` +
       `${drinkLine}\n` +
       `📍 *Konum:* ${parsedData.meal.location}\n` +
       `💰 *Fiyat:* ${parsedData.meal.price}\n` +
       `${noteLine}\n` +
-      `🌐 https://${REPO_OWNER}.github.io/${REPO_NAME}/`;
+      `🌐 https://${REPO_OWNER}.github.io/${REPO_NAME}/?u=${activeProfile.id}`;
 
     await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, liveMsgId, finalSuccessMsg);
 
@@ -1118,9 +1312,15 @@ function getFlattenedMeals(mealsList) {
   return result;
 }
 
-async function saveNewMealToGitHub(token, meal, customDate = null, customDay = null) {
-  const githubFile = await getGitHubFile(token);
-  let mealsList = JSON.parse(githubFile.content);
+async function saveNewMealToGitHub(token, meal, customDate = null, customDay = null, profile = USER_PROFILES["can"]) {
+  const filePath = profile ? profile.filePath : "data/meals/can.json";
+  const githubFile = await getGitHubFile(token, filePath);
+  let mealsList = [];
+  try {
+    mealsList = JSON.parse(githubFile.content);
+  } catch (e) {
+    mealsList = [];
+  }
 
   const { date: trDate, day: trDay } = getTurkeyTimeInfo();
   const targetDate = customDate || trDate;
@@ -1149,7 +1349,21 @@ async function saveNewMealToGitHub(token, meal, customDate = null, customDay = n
   }
 
   mealsList.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  await updateGitHubFile(token, githubFile.sha, JSON.stringify(mealsList, null, 2), `feat: ${targetDay} öğünü eklendi (${newMeal.title} - ${newMeal.price})`);
+  await updateGitHubFile(
+    token, 
+    githubFile.sha, 
+    JSON.stringify(mealsList, null, 2), 
+    `feat(${profile.id}): ${targetDay} öğünü eklendi (${newMeal.title} - ${newMeal.price})`,
+    filePath
+  );
+
+  // Can profili ise data/meals.json senkronize et
+  if (profile.id === "can") {
+    try {
+      const syncFile = await getGitHubFile(token, "data/meals.json");
+      await updateGitHubFile(token, syncFile.sha, JSON.stringify(mealsList, null, 2), `sync: meals.json`, "data/meals.json");
+    } catch (e) {}
+  }
 }
 
 async function parseMealWithGeminiFast(userMessage, apiKey) {
@@ -1226,8 +1440,8 @@ Emoji Kuralları (ana öğüne göre en uygun emojiyi seç):
   throw new Error("Gemini servisi meşgul.");
 }
 
-async function getGitHubFile(token) {
-  const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}?ref=${GITHUB_BRANCH}`;
+async function getGitHubFile(token, filePath = "data/meals/can.json") {
+  const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${filePath}?ref=${GITHUB_BRANCH}`;
   const response = await fetch(url, {
     headers: {
       "Authorization": `Bearer ${token}`,
@@ -1235,18 +1449,30 @@ async function getGitHubFile(token) {
       "Accept": "application/vnd.github.v3+json"
     }
   });
+  if (response.status === 404) {
+    return { sha: null, content: "[]" };
+  }
   if (!response.ok) throw new Error(`GitHub getFile Hatası: ${response.status}`);
   const data = await response.json();
   const decodedContent = new TextDecoder().decode(Uint8Array.from(atob(data.content), c => c.charCodeAt(0)));
   return { sha: data.sha, content: decodedContent };
 }
 
-async function updateGitHubFile(token, sha, content, message) {
-  const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
+async function updateGitHubFile(token, sha, content, message, filePath = "data/meals/can.json") {
+  const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${filePath}`;
   const utf8Bytes = new TextEncoder().encode(content);
   let binary = "";
   for (let i = 0; i < utf8Bytes.length; i++) binary += String.fromCharCode(utf8Bytes[i]);
   const base64Content = btoa(binary);
+
+  const payload = {
+    message,
+    content: base64Content,
+    branch: GITHUB_BRANCH
+  };
+  if (sha) {
+    payload.sha = sha;
+  }
 
   const response = await fetch(url, {
     method: "PUT",
@@ -1256,7 +1482,7 @@ async function updateGitHubFile(token, sha, content, message) {
       "Accept": "application/vnd.github.v3+json",
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ message, content: base64Content, sha, branch: GITHUB_BRANCH })
+    body: JSON.stringify(payload)
   });
   if (!response.ok) throw new Error(`GitHub updateFile Hatası: ${response.status}`);
   return await response.json();
@@ -1360,5 +1586,43 @@ async function handleInlineQuery(inlineQuery, env) {
       results,
       cache_time: 1
     })
+  });
+}
+
+async function handleCallbackQuery(callbackQuery, env) {
+  const data = callbackQuery.data;
+  const chatId = callbackQuery.message.chat.id;
+  const messageId = callbackQuery.message.message_id;
+
+  if (data && data.startsWith("set_profile:")) {
+    const profId = data.split(":")[1];
+    if (USER_PROFILES[profId]) {
+      userActiveProfiles.set(chatId, profId);
+      const prof = USER_PROFILES[profId];
+
+      await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/answerCallbackQuery`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          callback_query_id: callbackQuery.id,
+          text: `Aktif profil: ${prof.name} (${prof.emoji})`
+        })
+      });
+
+      const updatedText = 
+        `✅ *Aktif Profil Ayarlandı:* ${prof.emoji} *${prof.name}*\n\n` +
+        `Artık bu sohbetten yapacağın tüm eklemeler, listelemeler ve düzenlemeler *${prof.name}* adına kaydedilecek.\n` +
+        `📁 Dosya: \`${prof.filePath}\`\n\n` +
+        `🌐 https://${REPO_OWNER}.github.io/${REPO_NAME}/?u=${prof.id}`;
+
+      await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, messageId, updatedText);
+      return;
+    }
+  }
+
+  await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/answerCallbackQuery`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ callback_query_id: callbackQuery.id })
   });
 }

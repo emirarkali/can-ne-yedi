@@ -1,0 +1,29 @@
+[
+  {
+    "id": "can",
+    "name": "Can",
+    "fullName": "Can",
+    "avatar": "🍔",
+    "telegramUsername": "fifonee",
+    "file": "data/meals/can.json",
+    "bio": "Haftalık kesintisiz gurme zinciri"
+  },
+  {
+    "id": "emir",
+    "name": "Emir",
+    "fullName": "Emir",
+    "avatar": "🌯",
+    "telegramUsername": "emirarkali",
+    "file": "data/meals/emir.json",
+    "bio": "Sokak lezzetleri ve gurme keşifleri"
+  },
+  {
+    "id": "kemal",
+    "name": "Kemal",
+    "fullName": "Kemal",
+    "avatar": "🍕",
+    "telegramUsername": "kemal",
+    "file": "data/meals/kemal.json",
+    "bio": "Lezzet ve istikrar takibi"
+  }
+]

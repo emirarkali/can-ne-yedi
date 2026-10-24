@@ -1,19 +1,23 @@
-# Can Ne Yedi? 🍔
+# Kim Ne Yedi? 🍔 / 🌯 / 🍕
 
-Can'ın haftalık yemek günlüğü, kesintisiz yemek zinciri ve gurme durakları takip platformu.
+Can, Emir ve Kemal'in haftalık yemek günlüğü, kesintisiz yemek zinciri ve gurme durakları takip platformu.
 
 🌐 **Canlı Site:** [https://emirarkali.github.io/can-ne-yedi/](https://emirarkali.github.io/can-ne-yedi/)
+- **Can:** `?u=can` (Varsayılan)
+- **Emir:** `?u=emir`
+- **Kemal:** `?u=kemal`
 
 ---
 
 ## ✨ Özellikler
 
-- 🔥 **Yemek Zinciri (Streak):** Gün gün ne yediyse zincir halinde kesintisiz takip.
+- 👥 **Çoklu Kullanıcı Desteği:** Can, Emir ve Kemal profilleri arasında tek dokunuşla geçiş.
+- 🔥 **Yemek Zinciri (Streak):** Her kullanıcının gün gün ne yediyse zincir halinde kesintisiz takibi.
 - 📱 **Mobil Uyumlu & Modern Arayüz:** Modern dark mode gurme teması, Tailwind CSS ve akıcı animasyonlar.
 - 📍 **Konum ve Mekan Odaklı:** Yurt, McDonald's, Jungle Burger gibi öğünün nerede yendiği bilgisi.
-- 🥤 **Çoklu Öğün Desteği:** Bir günde birden fazla öğün yendiğinde (örn. Perşembe günü Tavuk Dürüm + kola ve hamburger + ayran) alt alta kartlar halinde listeleme.
+- 🥤 **Çoklu Öğün Desteği:** Bir günde birden fazla öğün yendiğinde alt alta kartlar halinde listeleme.
 - 🔍 **Arama ve Mekan Filtreleri:** Mekana veya yiyeceğe göre anlık filtreleme.
-- ⚡ **Kolay Güncelleme:** `data/meals.json` dosyasına yeni bir gün objesi ekleyip pushlamak yeterli!
+- 🤖 **Yapay Zekalı Telegram Botu:** Doğal dille ne yediğini ve fiyatını yazınca Gemini AI ile çözümlenip ilgili kullanıcının dosyasına anında işleme.
 
 ---
 

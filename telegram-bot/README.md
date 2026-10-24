@@ -64,13 +64,31 @@ python3 telegram-bot/bot_local.py
 
 ---
 
+## 👥 Çok Kullanıcılı Destek & Profil Değiştirme
+
+Bot Can, Emir ve Kemal için ortak çalışır. Kullanıcı adınıza göre otomatik olarak profilinizi seçer:
+- **Can:** Telegram `@fifonee` ➔ `data/meals/can.json`
+- **Emir:** Telegram `@emirarkali` ➔ `data/meals/emir.json`
+- **Kemal:** Telegram `@kemal` ➔ `data/meals/kemal.json`
+
+### 🔄 Profil Değiştirme Komutları:
+- `profil` : Mevcut aktif profili ve butonları gösterir.
+- `profil can` : Aktif profili Can (🍔) yapar.
+- `profil emir` : Aktif profili Emir (🌯) yapar.
+- `profil kemal` : Aktif profili Kemal (🍕) yapar.
+
+*(Profil değiştirdiğinizde yapacağınız tüm `/ekle`, `/liste`, `/duzenle`, `/sil` ve doğal dil kayıtları seçili kişinin günlüğüne işlenir!)*
+
+---
+
 ## 💬 Örnek Kullanımlar
 
 Telegram'dan bota dilediğiniz gibi yazabilirsiniz:
-- *"Bugün yurtta tavuk dürüm ve kola gömdüm"*
-- *"Öğlen mc donaldsda hamburger menü aldım içecek fuse tea şeftali"*
-- *"Jungle burgerde double burger ve ayran patates"*
-- *"Dün akşam yurtta pizza yedim"*
+- *"Bugün yurtta tavuk dürüm ve kola gömdüm 240 TL"*
+- *"Öğlen McDonald'sda hamburger menü aldım 350 TL içecek fuse tea şeftali"*
+- *"Jungle burgerde double burger ve ayran patates 440 TL"*
+- *"Dün akşam yurtta pizza yedim 280 TL"*
 
-Bot bunları anlar, emojisini ve kategorisini seçip siteye otomatik işler!
+Bot bunları anlar, emojisini ve kategorisini seçip ilgili kişinin günlüğüne otomatik işler!
+
 
