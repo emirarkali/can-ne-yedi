@@ -1,1 +1,21 @@
-[]
+[
+  {
+    "date": "2026-10-24",
+    "day": "Cumartesi",
+    "meals": [
+      {
+        "id": "2026-10-24-6010",
+        "title": "Balık Ekmek + Şalgam",
+        "items": [
+          "Balık Ekmek",
+          "Şalgam"
+        ],
+        "location": "Deniz Yıldızı",
+        "category": "Yemek",
+        "emoji": "🐟",
+        "price": "275 TL",
+        "note": "Aşırı iyidi midyede yedik"
+      }
+    ]
+  }
+]
