@@ -116,6 +116,19 @@
         "emoji": "🧆",
         "price": "Beleş TL",
         "note": "Sikim kalkti"
+      },
+      {
+        "id": "2026-10-23-2663",
+        "title": "Çig Köfte + Ayran",
+        "items": [
+          "Çig Köfte",
+          "Ayran"
+        ],
+        "location": "Efendy Cikofte",
+        "category": "Döner & Kebap",
+        "emoji": "🧆",
+        "price": "130 TL",
+        "note": "İlk ve son"
       }
     ]
   },
